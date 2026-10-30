@@ -84,10 +84,11 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if userId (!session) {
+    if (!session) {
       setContents([]);
       setLoading(false);
       return;
+      const userId = session.user.id;
     }
 
     let active = true;
