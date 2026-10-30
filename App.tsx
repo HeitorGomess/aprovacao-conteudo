@@ -88,7 +88,6 @@ function App() {
       setContents([]);
       setLoading(false);
       return;
-      const userId = session.user.id;
     }
 
     let active = true;
@@ -97,7 +96,7 @@ function App() {
     setError('');
     async function loadWorkspace() {
       try {
-        const authorized = await verifyEditor(userId);
+        const authorized = await verifyEditor(session.user.id);
         if (!active) return;
         if (!authorized) {
           setContents([]);
