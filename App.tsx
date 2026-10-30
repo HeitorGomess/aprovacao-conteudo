@@ -84,7 +84,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) {
+    if userId (!session) {
       setContents([]);
       setLoading(false);
       return;
@@ -96,7 +96,7 @@ function App() {
     setError('');
     async function loadWorkspace() {
       try {
-        const authorized = await verifyEditor(session.user.id);
+        const authorized = await verifyEditor(userId);
         if (!active) return;
         if (!authorized) {
           setContents([]);
