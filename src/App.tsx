@@ -688,7 +688,7 @@ function App() {
                   {isReviewer && (
                     <td>
                       {content.status === 'revisao' ? (
-                        <button className="button button-primary" onClick={() => setReviewing(content)} type="button">Dar parecer</button>
+                        <button className="button button-primary" onClick={() => setReviewing(content)} type="button">Aprovar</button>
                       ) : (
                         <span className="muted">Parecer registrado</span>
                       )}

@@ -138,7 +138,7 @@ a:hover { text-decoration: underline; }
 .review-caption { margin: 0; color: var(--ink); font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .review-card .card-footer { margin-bottom: 12px; }
 .review-card .card-footer a { flex: 1; text-align: right; }
-.review-action { width: 100%; margin-top: 16px; }
+.review-action { width: 100%; margin-top: auto; }
 .review-feedback, .programmer-feedback { margin-top: 14px; padding: 11px; border-radius: 8px; background: #f2f3ef; font-size: 12px; }
 .review-feedback > strong, .programmer-feedback > strong { display: block; margin-bottom: 7px; color: var(--muted); font-size: 11px; }
 .review-feedback p, .programmer-feedback p { margin: 8px 0 0; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }

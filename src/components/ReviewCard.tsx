@@ -59,7 +59,7 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
         )}
         {content.status === 'revisao' && onReview && (
           <button className="button button-primary review-action" onClick={() => onReview(content)} type="button">
-            Dar parecer
+            Aprovar
           </button>
         )}
       </div>
