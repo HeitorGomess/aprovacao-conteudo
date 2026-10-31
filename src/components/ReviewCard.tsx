@@ -14,9 +14,22 @@ const statusLabels: Record<ContentStatus, string> = {
 
 export default function ReviewCard({ content, onReview }: ReviewCardProps) {
   const recentComments = [...(content.reviewComments || [])].reverse().slice(0, 2);
+  const isInteractive = content.status === 'revisao' && Boolean(onReview);
 
   return (
-    <article className="review-card">
+    <article
+      className={`review-card${isInteractive ? ' review-card-interactive' : ''}`}
+      tabIndex={isInteractive ? 0 : undefined}
+      aria-label={isInteractive ? `Abrir revisão de ${content.title}` : undefined}
+      onClick={isInteractive ? () => onReview?.(content) : undefined}
+      onKeyDown={isInteractive ? (event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onReview?.(content);
+        }
+      } : undefined}
+    >
       <div className="review-cover">
         {content.coverData ? (
           <img src={content.coverData} alt={`Capa de ${content.title}`} loading="lazy" />
@@ -41,7 +54,7 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
         <div className="card-footer">
           <span className={`status-pill status-${content.status}`}>{statusLabels[content.status]}</span>
           {content.link && (
-            <a href={content.link} target="_blank" rel="noopener noreferrer">
+            <a href={content.link} onClick={(event) => event.stopPropagation()} target="_blank" rel="noopener noreferrer">
               Abrir material ↗
             </a>
           )}
@@ -58,7 +71,10 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
           </section>
         )}
         {content.status === 'revisao' && onReview && (
-          <button className="button button-primary review-action" onClick={() => onReview(content)} type="button">
+          <button className="button button-primary review-action" onClick={(event) => {
+            event.stopPropagation();
+            onReview(content);
+          }} type="button">
             Aprovar
           </button>
         )}
