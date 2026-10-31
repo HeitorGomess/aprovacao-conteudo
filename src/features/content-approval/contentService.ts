@@ -1,4 +1,4 @@
-import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
+import { createClient, type RealtimeChannel, type User } from '@supabase/supabase-js';
 import type { Content, ContentStatus } from './types';
 
 export type EditorRole = 'programador' | 'revisor';
@@ -114,6 +114,41 @@ export async function restoreWorkspace(workspaceId: string): Promise<void> {
     p_workspace_id: workspaceId,
   });
   if (error) throw error;
+}
+
+export async function saveUserProfile(name: string, avatarFile?: File): Promise<User> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  const user = sessionData.session?.user;
+  if (!user) throw new Error('Sua sessão expirou. Entre novamente para atualizar o perfil.');
+
+  let avatarUrl = typeof user.user_metadata?.avatar_url === 'string'
+    ? user.user_metadata.avatar_url
+    : '';
+  if (avatarFile) {
+    const { error: uploadError } = await supabase.storage
+      .from('profile-avatars')
+      .upload(`${user.id}/avatar`, avatarFile, {
+        cacheControl: '3600',
+        contentType: avatarFile.type,
+        upsert: true,
+      });
+    if (uploadError) throw new Error(`Não foi possível enviar a foto: ${uploadError.message}`);
+    const { data: publicUrl } = supabase.storage
+      .from('profile-avatars')
+      .getPublicUrl(`${user.id}/avatar`);
+    avatarUrl = `${publicUrl.publicUrl}?v=${Date.now()}`;
+  }
+
+  const { data, error } = await supabase.auth.updateUser({
+    data: {
+      full_name: name.trim(),
+      avatar_url: avatarUrl,
+    },
+  });
+  if (error) throw new Error(`Não foi possível atualizar o perfil: ${error.message}`);
+  if (!data.user) throw new Error('O Supabase não retornou o usuário atualizado.');
+  return data.user;
 }
 
 export async function verifyWorkspaceAccess(workspaceSlug: string): Promise<EditorAccess> {

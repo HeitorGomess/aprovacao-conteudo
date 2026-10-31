@@ -5,8 +5,10 @@ import BrandLockup from './components/BrandLockup';
 import ContentCard from './components/ContentCard';
 import ContentForm from './components/ContentForm';
 import LoginForm from './components/LoginForm';
+import ProfileMenu from './components/ProfileMenu';
 import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
+import UserProfilePage from './components/UserProfilePage';
 import WorkspaceSwitcher, { WorkspaceSetupPage } from './components/WorkspaceSwitcher';
 import WorkspaceTeamDashboard from './components/WorkspaceTeamDashboard';
 import {
@@ -19,6 +21,7 @@ import {
   saveContent,
   saveContents,
   restoreWorkspace,
+  saveUserProfile,
   resetReviewComments,
   submitReviewDecision,
   subscribeToContents,
@@ -54,6 +57,22 @@ function getErrorMessage(error: unknown): string {
   return 'Ocorreu um erro inesperado.';
 }
 
+function getProfilePageUrl(): string {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('admin');
+  url.searchParams.delete('team');
+  url.searchParams.set('profile', '1');
+  return url.toString();
+}
+
+function getPanelPageUrl(): string {
+  const url = new URL(window.location.href);
+  url.searchParams.delete('admin');
+  url.searchParams.delete('team');
+  url.searchParams.delete('profile');
+  return url.toString();
+}
+
 function localMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -66,14 +85,10 @@ function dateLabel(date: string): string {
   });
 }
 
-function getAdminDashboardUrl(): string {
-  const url = new URL(window.location.href);
-  url.searchParams.set('admin', '1');
-  return url.toString();
-}
-
 function getWorkspaceTeamUrl(): string {
   const url = new URL(window.location.href);
+  url.searchParams.delete('admin');
+  url.searchParams.delete('profile');
   url.searchParams.set('team', '1');
   return url.toString();
 }
@@ -95,6 +110,7 @@ function App() {
       : 'programador';
   const adminView = new URLSearchParams(window.location.search).get('admin') === '1';
   const teamView = new URLSearchParams(window.location.search).get('team') === '1';
+  const profileView = new URLSearchParams(window.location.search).get('profile') === '1';
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<WorkspaceRole | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -106,6 +122,7 @@ function App() {
   const [workspaceLoading, setWorkspaceLoading] = useState(!demoMode);
   const [workspaceError, setWorkspaceError] = useState('');
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [createWorkspaceRequest, setCreateWorkspaceRequest] = useState(0);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [passwordRecovery, setPasswordRecovery] = useState(false);
@@ -622,6 +639,26 @@ function App() {
     updateWorkspaceUrl(activeRestored.slug);
   }
 
+  async function handleSaveProfile(name: string, avatarFile?: File): Promise<string> {
+    if (demoMode) return '';
+    const updatedUser = await saveUserProfile(name, avatarFile);
+    setSession((current) => current ? { ...current, user: updatedUser } : current);
+    const avatarUrl = updatedUser.user_metadata?.avatar_url;
+    return typeof avatarUrl === 'string' ? avatarUrl : '';
+  }
+
+  function openPanelPage(): void {
+    window.location.assign(getPanelPageUrl());
+  }
+
+  function openProfileSettings(): void {
+    window.location.assign(getProfilePageUrl());
+  }
+
+  function requestWorkspaceCreation(): void {
+    setCreateWorkspaceRequest((current) => current + 1);
+  }
+
   function navigateBackFromWorkspacePage(parameter: 'admin' | 'team'): void {
     const url = new URL(window.location.href);
     url.searchParams.delete(parameter);
@@ -710,6 +747,37 @@ function App() {
       />
     );
   }
+  if (profileView) {
+    const user = session?.user || null;
+    const userEmail = user?.email || (demoMode ? 'admin@exemplo.com' : '');
+    const userFullName = typeof user?.user_metadata?.full_name === 'string'
+      ? user.user_metadata.full_name
+      : '';
+    const userAvatarUrl = typeof user?.user_metadata?.avatar_url === 'string'
+      ? user.user_metadata.avatar_url
+      : '';
+    return (
+      <UserProfilePage
+        user={user}
+        email={userEmail}
+        fullName={userFullName}
+        avatarUrl={userAvatarUrl}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspace?.id || ''}
+        canManage={activeIsAdmin}
+        createWorkspaceRequest={createWorkspaceRequest}
+        demoMode={demoMode}
+        onChangeWorkspace={handleWorkspaceChange}
+        onCreateWorkspace={handleCreateWorkspace}
+        onManageTeam={() => window.location.assign(getWorkspaceTeamUrl())}
+        onOpenPanel={openPanelPage}
+        onOpenSettings={() => undefined}
+        onNewWorkspace={requestWorkspaceCreation}
+        onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
+        onSaveProfile={handleSaveProfile}
+      />
+    );
+  }
   if (!activeWorkspace && !demoMode) {
     return (
       <WorkspaceSetupPage
@@ -742,17 +810,24 @@ function App() {
       <WorkspaceTeamDashboard
         demoMode={demoMode}
         workspaceId={activeWorkspace?.id || 'demo-workspace'}
+        workspaceSlug={activeWorkspace?.slug || 'your-space'}
         workspaceName={activeWorkspace?.name || 'Your Space'}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspace?.id || ''}
+        createWorkspaceRequest={createWorkspaceRequest}
         canManage={activeIsAdmin}
         isSystemAdmin={demoMode ? demoRole === 'administrador' : isSystemAdmin}
+        profileName={session?.user.user_metadata?.full_name || ''}
+        avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
         onChangeWorkspace={handleWorkspaceChange}
         onCreateWorkspace={handleCreateWorkspace}
         onRenameWorkspace={handleRenameWorkspace}
         onArchiveWorkspace={handleArchiveWorkspace}
         onRestoreWorkspace={handleRestoreWorkspace}
-        onBack={() => navigateBackFromWorkspacePage('team')}
+        onOpenPanel={openPanelPage}
+        onOpenSettings={openProfileSettings}
+        onNewWorkspace={requestWorkspaceCreation}
+        onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
         onExitDemo={exitDemoMode}
       />
     );
@@ -789,26 +864,26 @@ function App() {
               workspaces={workspaces}
               activeWorkspaceId={activeWorkspace.id}
               canManage={activeIsAdmin}
-              isSystemAdmin={demoMode ? demoRole === 'administrador' : isSystemAdmin}
+              openCreateRequest={createWorkspaceRequest}
               onChange={handleWorkspaceChange}
               onCreateWorkspace={handleCreateWorkspace}
               onManageTeam={() => window.location.assign(getWorkspaceTeamUrl())}
-              onRenameWorkspace={handleRenameWorkspace}
-              onArchiveWorkspace={handleArchiveWorkspace}
-              onRestoreWorkspace={handleRestoreWorkspace}
             />
           )}
         </div>
         <div className="user-menu">
-          <span title={demoMode ? 'Dados fictícios desta demonstração' : session?.user.email}>
-            {demoMode ? `Demonstração · ${demoRole === 'administrador' ? 'Administrador' : demoRole}` : session?.user.email}
-          </span>
-          {(demoMode ? demoRole === 'administrador' : isSystemAdmin) && (
-            <a className="button" href={getAdminDashboardUrl()}>Acessos do Your Space</a>
-          )}
-          <button className="button" onClick={() => demoMode ? exitDemoMode() : void handleLogout()} type="button">
-            {demoMode ? 'Sair do demo' : 'Sair'}
-          </button>
+          <ProfileMenu
+            displayName={
+              typeof session?.user.user_metadata?.full_name === 'string'
+                ? session.user.user_metadata.full_name
+                : demoMode ? 'Administrador demo' : 'Meu perfil'
+            }
+            avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
+            onOpenPanel={openPanelPage}
+            onOpenSettings={openProfileSettings}
+            onNewWorkspace={requestWorkspaceCreation}
+            onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
+          />
         </div>
       </header>
 

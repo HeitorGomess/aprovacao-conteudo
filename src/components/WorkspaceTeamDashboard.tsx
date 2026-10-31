@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import ProfileMenu from './ProfileMenu';
 import BrandLockup from './BrandLockup';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import {
@@ -13,17 +14,24 @@ import {
 interface WorkspaceTeamDashboardProps {
   demoMode: boolean;
   workspaceId: string;
+  workspaceSlug: string;
   workspaceName: string;
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
+  createWorkspaceRequest: number;
   canManage: boolean;
   isSystemAdmin: boolean;
+  profileName: string;
+  avatarUrl: string;
   onChangeWorkspace: (workspaceId: string) => void;
   onCreateWorkspace: (name: string) => Promise<void>;
   onRenameWorkspace: (workspaceId: string, name: string) => Promise<void>;
   onArchiveWorkspace: (workspaceId: string) => Promise<void>;
   onRestoreWorkspace: (workspaceId: string) => Promise<void>;
-  onBack: () => void;
+  onOpenPanel: () => void;
+  onOpenSettings: () => void;
+  onNewWorkspace: () => void;
+  onSignOut: () => void;
   onExitDemo: () => void;
 }
 
@@ -64,17 +72,24 @@ function getErrorMessage(reason: unknown): string {
 export default function WorkspaceTeamDashboard({
   demoMode,
   workspaceId,
+  workspaceSlug,
   workspaceName,
   workspaces,
   activeWorkspaceId,
+  createWorkspaceRequest,
   canManage,
   isSystemAdmin,
+  profileName,
+  avatarUrl,
   onChangeWorkspace,
   onCreateWorkspace,
   onRenameWorkspace,
   onArchiveWorkspace,
   onRestoreWorkspace,
-  onBack,
+  onOpenPanel,
+  onOpenSettings,
+  onNewWorkspace,
+  onSignOut,
   onExitDemo,
 }: WorkspaceTeamDashboardProps) {
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
@@ -87,6 +102,12 @@ export default function WorkspaceTeamDashboard({
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [workspaceNameInput, setWorkspaceNameInput] = useState(workspaceName);
+  const [savingWorkspace, setSavingWorkspace] = useState(false);
+
+  useEffect(() => {
+    setWorkspaceNameInput(workspaceName);
+  }, [workspaceName]);
 
   const refreshMembers = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -172,6 +193,50 @@ export default function WorkspaceTeamDashboard({
     }
   }
 
+  async function renameCurrentWorkspace(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingWorkspace(true);
+    setError('');
+    setNotice('');
+    try {
+      await onRenameWorkspace(workspaceId, workspaceNameInput.trim());
+      setNotice('Nome da empresa atualizado.');
+    } catch (reason) {
+      setError(`Não foi possível renomear a empresa: ${getErrorMessage(reason)}`);
+    } finally {
+      setSavingWorkspace(false);
+    }
+  }
+
+  async function archiveCurrentWorkspace() {
+    if (!window.confirm(`Arquivar "${workspaceName}"? Os conteúdos e a equipe serão preservados e será possível restaurar a empresa depois.`)) return;
+    setSavingWorkspace(true);
+    setError('');
+    setNotice('');
+    try {
+      await onArchiveWorkspace(workspaceId);
+      setNotice('Empresa arquivada. Seus conteúdos e equipe foram preservados.');
+    } catch (reason) {
+      setError(`Não foi possível arquivar a empresa: ${getErrorMessage(reason)}`);
+    } finally {
+      setSavingWorkspace(false);
+    }
+  }
+
+  async function restoreArchivedWorkspace(archivedWorkspace: WorkspaceSummary) {
+    setSavingWorkspace(true);
+    setError('');
+    setNotice('');
+    try {
+      await onRestoreWorkspace(archivedWorkspace.id);
+      setNotice(`${archivedWorkspace.name} foi restaurada.`);
+    } catch (reason) {
+      setError(`Não foi possível restaurar a empresa: ${getErrorMessage(reason)}`);
+    } finally {
+      setSavingWorkspace(false);
+    }
+  }
+
   return (
     <main className="page-shell">
       <header className="topbar workspace-admin-topbar">
@@ -180,16 +245,22 @@ export default function WorkspaceTeamDashboard({
           <WorkspaceSwitcher
             workspaces={workspaces}
             activeWorkspaceId={activeWorkspaceId}
-            canManage={canManage}
-            isSystemAdmin={isSystemAdmin}
+            canManage={false}
+            openCreateRequest={createWorkspaceRequest}
             onChange={onChangeWorkspace}
             onCreateWorkspace={onCreateWorkspace}
-            onRenameWorkspace={onRenameWorkspace}
-            onArchiveWorkspace={onArchiveWorkspace}
-            onRestoreWorkspace={onRestoreWorkspace}
           />
         </div>
-        <button className="button" onClick={onBack} type="button">Voltar à empresa</button>
+        <div className="user-menu">
+          <ProfileMenu
+            displayName={profileName || 'Meu perfil'}
+            avatarUrl={avatarUrl}
+            onOpenPanel={onOpenPanel}
+            onOpenSettings={onOpenSettings}
+            onNewWorkspace={onNewWorkspace}
+            onSignOut={onSignOut}
+          />
+        </div>
       </header>
 
       {demoMode && (
@@ -217,6 +288,74 @@ export default function WorkspaceTeamDashboard({
         <article><strong>Programador</strong><span>Cria, importa, edita e exclui conteúdos desta empresa.</span></article>
         <article><strong>Revisor</strong><span>Visualiza conteúdos em revisão, ajustes e aprovados e registra pareceres.</span></article>
       </section>
+
+      {canManage && (
+        <section className="workspace-settings-section">
+          <div className="workspace-settings-heading">
+            <div>
+              <p className="eyebrow">CONFIGURAÇÃO</p>
+              <h3>Configuração da empresa</h3>
+              <p>Altere o nome ou arquive este espaço sem apagar o conteúdo e a equipe.</p>
+            </div>
+          </div>
+          <form className="workspace-rename-form" onSubmit={(event) => void renameCurrentWorkspace(event)}>
+            <label>
+              Nome da empresa
+              <input
+                maxLength={80}
+                minLength={2}
+                required
+                value={workspaceNameInput}
+                onChange={(event) => setWorkspaceNameInput(event.target.value)}
+              />
+            </label>
+            <button
+              className="button button-primary"
+              disabled={savingWorkspace || workspaceNameInput.trim().length < 2 || workspaceNameInput.trim() === workspaceName}
+              type="submit"
+            >
+              {savingWorkspace ? 'Salvando…' : 'Salvar nome'}
+            </button>
+            {workspaceSlug !== 'your-space' && (
+              <button
+                className="button button-danger"
+                disabled={savingWorkspace}
+                onClick={() => void archiveCurrentWorkspace()}
+                type="button"
+              >
+                Arquivar empresa
+              </button>
+            )}
+          </form>
+
+          {workspaces.some((workspace) => workspace.archivedAt) && (
+            <div className="workspace-archived-list">
+              <h4>Empresas arquivadas</h4>
+              {workspaces.filter((workspace) => workspace.archivedAt).map((workspace) => {
+                const canRestore = isSystemAdmin || workspace.isOwner || workspace.role === 'administrador';
+                return (
+                  <div className="workspace-archived-row" key={workspace.id}>
+                    <div>
+                      <strong>{workspace.name}</strong>
+                      <span>Conteúdos e equipe preservados</span>
+                    </div>
+                    {canRestore && (
+                      <button
+                        className="button"
+                        disabled={savingWorkspace}
+                        onClick={() => void restoreArchivedWorkspace(workspace)}
+                        type="button"
+                      >
+                        Restaurar
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       <form className="workspace-member-form" onSubmit={(event) => void addMember(event)}>
         <label>

@@ -1,68 +1,45 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import BrandLockup from './BrandLockup';
 import type { WorkspaceSummary } from '../features/content-approval/contentService';
-
-interface WorkspaceSwitcherProps {
-  workspaces: WorkspaceSummary[];
-  activeWorkspaceId: string;
-  canManage: boolean;
-  isSystemAdmin?: boolean;
-  onChange: (workspaceId: string) => void;
-  onCreateWorkspace: (name: string) => Promise<void>;
-  onManageTeam?: () => void;
-  onRenameWorkspace: (workspaceId: string, name: string) => Promise<void>;
-  onArchiveWorkspace: (workspaceId: string) => Promise<void>;
-  onRestoreWorkspace: (workspaceId: string) => Promise<void>;
-}
 
 function getErrorMessage(reason: unknown): string {
   if (reason instanceof Error) return reason.message;
   if (typeof reason === 'object' && reason !== null && 'message' in reason && typeof reason.message === 'string') {
     return reason.message;
   }
-  return 'Não foi possível concluir a ação na empresa. Tente novamente.';
+  return 'Ocorreu um erro inesperado.';
+}
+
+interface WorkspaceSwitcherProps {
+  workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string;
+  canManage: boolean;
+  openCreateRequest?: number;
+  onChange: (workspaceId: string) => void;
+  onCreateWorkspace: (name: string) => Promise<void>;
+  onManageTeam?: () => void;
 }
 
 export default function WorkspaceSwitcher({
   workspaces,
   activeWorkspaceId,
   canManage,
-  isSystemAdmin = false,
+  openCreateRequest = 0,
   onChange,
   onCreateWorkspace,
   onManageTeam,
-  onRenameWorkspace,
-  onArchiveWorkspace,
-  onRestoreWorkspace,
 }: WorkspaceSwitcherProps) {
   const [createOpen, setCreateOpen] = useState(false);
-  const [manageOpen, setManageOpen] = useState(false);
   const [name, setName] = useState('');
-  const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-  const [manageError, setManageError] = useState('');
-  const [manageNotice, setManageNotice] = useState('');
-  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
-  const archivedWorkspaces = workspaces.filter((workspace) => workspace.archivedAt);
-  const canRestoreAny = isSystemAdmin
-    || archivedWorkspaces.some((workspace) => workspace.isOwner || workspace.role === 'administrador');
 
-  async function performManagementAction(action: () => Promise<void>, successMessage: string): Promise<boolean> {
-    setPending(true);
-    setManageError('');
-    setManageNotice('');
-    try {
-      await action();
-      setManageNotice(successMessage);
-      return true;
-    } catch (reason) {
-      setManageError(getErrorMessage(reason));
-      return false;
-    } finally {
-      setPending(false);
+  useEffect(() => {
+    if (openCreateRequest > 0) {
+      setError('');
+      setCreateOpen(true);
     }
-  }
+  }, [openCreateRequest]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -96,21 +73,7 @@ export default function WorkspaceSwitcher({
           </select>
         </label>
         {canManage && onManageTeam && (
-          <button className="button" onClick={onManageTeam} type="button">Equipe</button>
-        )}
-        {(canManage || canRestoreAny) && (
-          <button
-            className="button"
-            onClick={() => {
-              setNewWorkspaceName(activeWorkspace?.name || '');
-              setManageError('');
-              setManageNotice('');
-              setManageOpen(true);
-            }}
-            type="button"
-          >
-            Gerenciar empresa
-          </button>
+          <button className="button" onClick={onManageTeam} type="button">Gerenciar empresa</button>
         )}
         <button className="button button-primary workspace-create-button" onClick={() => {
           setError('');
@@ -168,111 +131,6 @@ export default function WorkspaceSwitcher({
         </div>
       )}
 
-      {manageOpen && (
-        <div className="modal-backdrop workspace-modal-backdrop" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !pending) setManageOpen(false);
-        }}>
-          <section className="workspace-modal workspace-manage-modal" role="dialog" aria-modal="true" aria-labelledby="workspace-manage-title">
-            <header className="modal-header">
-              <div>
-                <p className="eyebrow">EMPRESAS</p>
-                <h2 id="workspace-manage-title">Gerenciar empresas</h2>
-              </div>
-              <button
-                className="icon-button"
-                type="button"
-                aria-label="Fechar"
-                disabled={pending}
-                onClick={() => setManageOpen(false)}
-              >
-                ×
-              </button>
-            </header>
-            <div className="workspace-management-body">
-              {canManage && activeWorkspace && (
-                <section className="workspace-manage-current">
-                  <h3>Empresa selecionada</h3>
-                  <form onSubmit={(event) => {
-                    event.preventDefault();
-                    void performManagementAction(
-                      () => onRenameWorkspace(activeWorkspace.id, newWorkspaceName),
-                      'Nome da empresa atualizado.',
-                    );
-                  }}>
-                    <label>
-                      Nome da empresa
-                      <input
-                        required
-                        minLength={2}
-                        maxLength={80}
-                        value={newWorkspaceName}
-                        onChange={(event) => setNewWorkspaceName(event.target.value)}
-                      />
-                    </label>
-                    <button className="button button-primary" disabled={pending || newWorkspaceName.trim().length < 2 || newWorkspaceName.trim() === activeWorkspace.name} type="submit">
-                      Salvar nome
-                    </button>
-                  </form>
-                  <div className="workspace-archive-action">
-                    <p>Arquivar oculta a empresa, sem apagar publicações ou equipe. Ela poderá ser restaurada depois.</p>
-                    <button
-                      className="button button-danger"
-                      disabled={pending || activeWorkspace.slug === 'your-space'}
-                      onClick={() => {
-                        if (!window.confirm(`Arquivar "${activeWorkspace.name}"? Os dados serão preservados e poderão ser restaurados.`)) return;
-                        void performManagementAction(
-                          () => onArchiveWorkspace(activeWorkspace.id),
-                          'Empresa arquivada. Publicações e equipe foram preservadas.',
-                        ).then((succeeded) => {
-                          if (succeeded) setManageOpen(false);
-                        });
-                      }}
-                      type="button"
-                    >
-                      Arquivar empresa
-                    </button>
-                  </div>
-                  {activeWorkspace.slug === 'your-space' && (
-                    <p className="muted">A empresa principal Your Space não pode ser arquivada.</p>
-                  )}
-                </section>
-              )}
-
-              {archivedWorkspaces.length > 0 && (
-                <section className="workspace-archived-list">
-                  <h3>Empresas arquivadas</h3>
-                  {archivedWorkspaces.map((workspace) => {
-                    const canRestore = isSystemAdmin || workspace.isOwner || workspace.role === 'administrador';
-                    return (
-                      <div className="workspace-archived-row" key={workspace.id}>
-                        <div>
-                          <strong>{workspace.name}</strong>
-                          <span>Conteúdos e equipe preservados</span>
-                        </div>
-                        {canRestore && (
-                          <button
-                            className="button"
-                            disabled={pending}
-                            onClick={() => void performManagementAction(
-                              () => onRestoreWorkspace(workspace.id),
-                              `${workspace.name} foi restaurada.`,
-                            )}
-                            type="button"
-                          >
-                            Restaurar
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </section>
-              )}
-              {manageError && <p className="form-error" role="alert">{manageError}</p>}
-              {manageNotice && <p className="notice workspace-success" role="status">{manageNotice}</p>}
-            </div>
-          </section>
-        </div>
-      )}
     </>
   );
 }
