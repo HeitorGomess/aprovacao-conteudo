@@ -283,7 +283,7 @@ function App() {
       options: { emailRedirectTo: confirmationUrl.toString() },
     });
     if (signUpError) throw new Error(`Não foi possível criar a conta: ${signUpError.message}`);
-    return 'Conta criada. Confirme seu e-mail e aguarde o administrador liberar seu perfil de acesso.';
+    return 'Conta criada. Confirme seu e-mail para receber acesso automático como revisor.';
   }
 
   async function handlePasswordReset(email: string): Promise<string> {

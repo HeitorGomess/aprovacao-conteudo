@@ -52,6 +52,11 @@ begin
     and lower(coalesce(new.email, '')) <> 'gomesheitorvp@gmail.com' then
     delete from public.panel_admins where user_id = new.id;
     delete from public.panel_editors where user_id = new.id;
+  elsif new.email_confirmed_at is not null
+    and lower(coalesce(new.email, '')) <> 'gomesheitorvp@gmail.com' then
+    insert into public.panel_editors (user_id, role)
+    values (new.id, 'revisor')
+    on conflict (user_id) do nothing;
   end if;
 
   return new;

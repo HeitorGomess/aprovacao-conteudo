@@ -92,7 +92,7 @@ export default function LoginForm({
   const description = mode === 'login'
     ? 'Entre para planejar, compartilhar e acompanhar cada conteúdo da sua equipe.'
     : mode === 'signup'
-      ? 'Cadastre seu e-mail para solicitar acesso ao workspace.'
+      ? 'Crie sua conta e confirme seu e-mail para acessar o painel como revisor.'
       : mode === 'forgot-password'
         ? 'Enviaremos um link seguro para o e-mail cadastrado.'
         : 'Escolha uma senha segura para continuar usando sua conta.';
