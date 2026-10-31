@@ -11,6 +11,7 @@ import {
   supabase,
   verifyEditor,
 } from './features/content-approval/contentService';
+import { createMockContents } from './features/content-approval/mockData';
 import type { Content, ContentFormData, ContentStatus } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
@@ -41,10 +42,11 @@ function dateLabel(date: string): string {
 }
 
 function App() {
+  const demoMode = new URLSearchParams(window.location.search).get('demo') === '1';
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
-  const [contents, setContents] = useState<Content[]>([]);
+  const [contents, setContents] = useState<Content[]>(() => demoMode ? createMockContents() : []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [month, setMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
@@ -56,6 +58,11 @@ function App() {
   const [editing, setEditing] = useState<Content | null>(null);
 
   useEffect(() => {
+    if (demoMode) {
+      setAuthLoading(false);
+      return;
+    }
+
     let active = true;
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (active) {
@@ -81,9 +88,14 @@ function App() {
       active = false;
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [demoMode]);
 
   useEffect(() => {
+    if (demoMode) {
+      setLoading(false);
+      return;
+    }
+
     if (!session) {
       setContents([]);
       setLoading(false);
@@ -121,7 +133,7 @@ function App() {
       active = false;
       unsubscribe?.();
     };
-  }, [session?.user.id]);
+  }, [demoMode, session?.user.id]);
 
   const monthContents = useMemo(
     () => contents.filter((content) => content.date.startsWith(localMonthKey(month))),
@@ -183,7 +195,7 @@ function App() {
           history: [{ status: data.status, at: now }],
         };
 
-    await saveContent(content);
+    if (!demoMode) await saveContent(content);
     setContents((current) => {
       const index = current.findIndex((item) => item.id === content.id);
       if (index < 0) return [...current, content];
@@ -197,7 +209,7 @@ function App() {
   }
 
   async function handleDelete(content: Content) {
-    await deleteContent(content.id);
+    if (!demoMode) await deleteContent(content.id);
     setContents((current) => current.filter((item) => item.id !== content.id));
     setFormOpen(false);
     setEditing(null);
@@ -212,7 +224,7 @@ function App() {
       history: [...content.history.slice(-19), { status: 'aprovado', at: now }],
     };
     try {
-      await saveContent(approved);
+      if (!demoMode) await saveContent(approved);
       setContents((current) => current.map((item) => item.id === approved.id ? approved : item));
       setError('');
     } catch (reason) {
@@ -222,6 +234,12 @@ function App() {
 
   function shiftMonth(amount: number) {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
+  }
+
+  function exitDemoMode() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('demo');
+    window.location.assign(url);
   }
 
   if (authLoading) {
@@ -249,10 +267,20 @@ function App() {
           </div>
         </div>
         <div className="user-menu">
-          <span title={session.user.email}>{session.user.email}</span>
-          <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
+          <span title={demoMode ? 'Dados fictícios desta demonstração' : session?.user.email}>
+            {demoMode ? 'Modo demonstração' : session?.user.email}
+          </span>
+          <button className="button" onClick={() => demoMode ? exitDemoMode() : void handleLogout()} type="button">
+            {demoMode ? 'Sair do demo' : 'Sair'}
+          </button>
         </div>
       </header>
+
+      {demoMode && (
+        <div className="notice demo-banner" role="status">
+          Dados fictícios para demonstração. Alterações ficam apenas nesta sessão e não são salvas no Supabase.
+        </div>
+      )}
 
       <section className="toolbar">
         <div>

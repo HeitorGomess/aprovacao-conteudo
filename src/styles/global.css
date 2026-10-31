@@ -85,6 +85,7 @@ a:hover { text-decoration: underline; }
 .filters input { width: min(100%, 360px); padding: 8px 12px; }
 .filters select { min-width: 180px; padding: 8px 12px; }
 .notice { justify-content: space-between; gap: 12px; margin: 12px 0; padding: 10px 13px; border: 1px solid #e6c6a9; border-radius: 9px; color: #75501b; background: #fff9ee; font-size: 13px; }
+.demo-banner { border-color: #c5caff; color: #273a9c; background: #f3f4ff; }
 
 .content-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
 .content-card { display: flex; min-width: 0; overflow: hidden; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; transition: border-color .15s, transform .15s; }
