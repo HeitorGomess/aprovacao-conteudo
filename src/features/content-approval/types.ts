@@ -5,6 +5,13 @@ export interface StatusChange {
   at: string;
 }
 
+export interface ReviewComment {
+  at: string;
+  author: string;
+  comment: string;
+  decision: 'aprovado' | 'ajustes';
+}
+
 export interface Content {
   id: string;
   title: string;
@@ -17,6 +24,7 @@ export interface Content {
   status: ContentStatus;
   coverData: string;
   history: StatusChange[];
+  reviewComments?: ReviewComment[];
   updatedAt: string;
 }
 

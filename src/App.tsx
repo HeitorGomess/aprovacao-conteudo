@@ -3,18 +3,22 @@ import type { Session } from '@supabase/supabase-js';
 import ContentCard from './components/ContentCard';
 import ContentForm from './components/ContentForm';
 import LoginForm from './components/LoginForm';
+import ReviewCard from './components/ReviewCard';
+import ReviewDecisionModal from './components/ReviewDecisionModal';
 import {
   deleteContent,
   fetchContents,
   saveContent,
   saveContents,
+  submitReviewDecision,
   subscribeToContents,
   supabase,
   verifyEditor,
+  type EditorRole,
 } from './features/content-approval/contentService';
 import { createMockContents } from './features/content-approval/mockData';
 import { importContentCsv } from './features/content-approval/csvImport';
-import type { Content, ContentFormData, ContentStatus } from './features/content-approval/types';
+import type { Content, ContentFormData, ContentStatus, ReviewComment } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
 
@@ -51,7 +55,11 @@ function dateLabel(date: string): string {
 
 function App() {
   const demoMode = new URLSearchParams(window.location.search).get('demo') === '1';
+  const demoRole: EditorRole = new URLSearchParams(window.location.search).get('role') === 'revisor'
+    ? 'revisor'
+    : 'programador';
   const [session, setSession] = useState<Session | null>(null);
+  const [role, setRole] = useState<EditorRole | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [contents, setContents] = useState<Content[]>(() => demoMode ? createMockContents() : []);
@@ -65,6 +73,7 @@ function App() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Content | null>(null);
   const [importing, setImporting] = useState(false);
+  const [reviewing, setReviewing] = useState<Content | null>(null);
 
   useEffect(() => {
     if (demoMode) {
@@ -76,6 +85,7 @@ function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (active) {
         setSession(nextSession);
+        setRole(null);
         setAuthError('');
         setAuthLoading(false);
       }
@@ -118,11 +128,12 @@ function App() {
     setError('');
     async function loadWorkspace() {
       try {
-        const authorized = await verifyEditor(userId);
+        const editorRole = await verifyEditor(userId);
         if (!active) return;
-        if (!authorized) {
+        setRole(editorRole);
+        if (!editorRole) {
           setContents([]);
-          setError('Esta conta ainda não foi autorizada pelo administrador do painel.');
+          setError('Esta conta ainda não recebeu um perfil no painel. Peça ao administrador para autorizar seu acesso.');
           return;
         }
         setContents(await fetchContents());
@@ -224,20 +235,32 @@ function App() {
     setEditing(null);
   }
 
-  async function handleApprove(content: Content) {
+  async function handleReviewDecision(
+    content: Content,
+    status: Extract<ContentStatus, 'aprovado' | 'ajustes'>,
+    comment: string,
+  ) {
     const now = new Date().toISOString();
-    const approved: Content = {
+    const reviewComment: ReviewComment = {
+      at: now,
+      author: demoMode ? 'Revisor de demonstração' : session?.user.email || 'Revisor',
+      comment,
+      decision: status,
+    };
+    const updated: Content = {
       ...content,
-      status: 'aprovado',
+      status,
       updatedAt: now,
-      history: [...content.history.slice(-19), { status: 'aprovado', at: now }],
+      history: [...content.history.slice(-19), { status, at: now }],
+      reviewComments: [...(content.reviewComments || []), reviewComment],
     };
     try {
-      if (!demoMode) await saveContent(approved);
-      setContents((current) => current.map((item) => item.id === approved.id ? approved : item));
+      if (!demoMode) await submitReviewDecision(content.id, status, comment);
+      setContents((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setReviewing(null);
       setError('');
     } catch (reason) {
-      setError(`Não foi possível aprovar o conteúdo: ${getErrorMessage(reason)}`);
+      throw new Error(`Não foi possível registrar o parecer: ${getErrorMessage(reason)}`);
     }
   }
 
@@ -278,6 +301,24 @@ function App() {
   if (!session && !demoMode) {
     return <LoginForm error={authError} onSubmit={handleLogin} />;
   }
+  const activeRole = demoMode ? demoRole : role;
+  if (!activeRole && loading) {
+    return <main className="auth-page"><p className="muted">Verificando perfil de acesso…</p></main>;
+  }
+  if (!activeRole) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="brand-mark" aria-hidden="true">A</div>
+          <p className="eyebrow">ACESSO AO WORKSPACE</p>
+          <h1>Perfil não configurado</h1>
+          <p className="muted">{error || 'Peça ao administrador para atribuir o perfil de programador ou revisor.'}</p>
+          <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
+        </section>
+      </main>
+    );
+  }
+  const isReviewer = activeRole === 'revisor';
 
   const monthName = month.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const approvedCount = monthContents.filter((content) => content.status === 'aprovado').length;
@@ -315,7 +356,7 @@ function App() {
       <section className="toolbar">
         <div>
           <p className="eyebrow">PLANEJAMENTO EDITORIAL</p>
-          <h2>Calendário de conteúdo</h2>
+          <h2>{isReviewer ? 'Revisão de conteúdo' : 'Calendário de conteúdo'}</h2>
         </div>
         <div className="toolbar-actions">
           <div className="month-nav" aria-label="Navegar entre meses">
@@ -323,30 +364,35 @@ function App() {
             <span>{monthName}</span>
             <button className="icon-button" onClick={() => shiftMonth(1)} type="button" aria-label="Próximo mês">›</button>
           </div>
-          <div className="view-switch" aria-label="Visualização">
-            <button aria-pressed={view === 'cards'} onClick={() => setView('cards')} type="button">Cards</button>
-            <button aria-pressed={view === 'calendar'} onClick={() => setView('calendar')} type="button">Calendário</button>
-            <button aria-pressed={view === 'table'} onClick={() => setView('table')} type="button">Tabela</button>
-          </div>
-          <div className="toolbar-actions">
-            <label className="button import-button">
-              {importing ? 'Importando…' : 'Importar CSV'}
-              <input
-                accept=".csv,text/csv"
-                aria-label="Importar arquivo CSV"
-                disabled={importing}
-                onChange={(event) => {
-                  void handleImportCsv(event.target.files?.[0]);
-                  event.target.value = '';
-                }}
-                type="file"
-              />
-            </label>
-            <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
-          </div>
+          {!isReviewer && (
+            <>
+              <div className="view-switch" aria-label="Visualização">
+                <button aria-pressed={view === 'cards'} onClick={() => setView('cards')} type="button">Cards</button>
+                <button aria-pressed={view === 'calendar'} onClick={() => setView('calendar')} type="button">Calendário</button>
+                <button aria-pressed={view === 'table'} onClick={() => setView('table')} type="button">Tabela</button>
+              </div>
+              <div className="toolbar-actions">
+                <label className="button import-button">
+                  {importing ? 'Importando…' : 'Importar CSV'}
+                  <input
+                    accept=".csv,text/csv"
+                    aria-label="Importar arquivo CSV"
+                    disabled={importing}
+                    onChange={(event) => {
+                      void handleImportCsv(event.target.files?.[0]);
+                      event.target.value = '';
+                    }}
+                    type="file"
+                  />
+                </label>
+                <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
+      {!isReviewer ? (
       <section className="summary-panel" aria-label="Resumo do mês">
         <div className="status-summary">
           {statuses.map((status) => {
@@ -371,6 +417,12 @@ function App() {
           <strong>{completion}%</strong>
         </div>
       </section>
+      ) : (
+        <section className="review-queue-banner" aria-label="Fila de revisão">
+          <strong>{monthContents.filter((content) => content.status === 'revisao').length}</strong>
+          <span>publicações aguardando seu parecer em {monthName}</span>
+        </section>
+      )}
 
       <section className="filters" aria-label="Filtros">
         <input
@@ -390,7 +442,13 @@ function App() {
 
       {loading ? (
         <div className="empty-state"><p>Carregando conteúdos…</p></div>
-      ) : monthContents.length === 0 ? (
+      ) : isReviewer && visibleContents.filter((content) => content.status === 'revisao').length === 0 ? (
+        <div className="empty-state">
+          <span className="empty-mark">✓</span>
+          <h2>Nenhuma publicação aguardando revisão</h2>
+          <p>Quando o programador enviar conteúdos para revisão, eles aparecerão aqui.</p>
+        </div>
+      ) : !isReviewer && monthContents.length === 0 ? (
         <div className="empty-state">
           <span className="empty-mark">✳</span>
           <h2>Nada agendado em {monthName}</h2>
@@ -399,10 +457,16 @@ function App() {
         </div>
       ) : visibleContents.length === 0 ? (
         <div className="empty-state"><h2>Nenhum resultado</h2><p>Ajuste os filtros para ver os conteúdos deste mês.</p></div>
+      ) : isReviewer ? (
+        <section className="content-grid review-grid" aria-label="Publicações aguardando revisão">
+          {visibleContents.filter((content) => content.status === 'revisao').map((content) => (
+            <ReviewCard content={content} key={content.id} onReview={setReviewing} />
+          ))}
+        </section>
       ) : view === 'cards' ? (
         <section className="content-grid" aria-label="Conteúdos do mês">
           {visibleContents.map((content) => (
-            <ContentCard content={content} key={content.id} onApprove={handleApprove} onEdit={openEditContent} />
+            <ContentCard content={content} key={content.id} onEdit={openEditContent} />
           ))}
         </section>
       ) : view === 'table' ? (
@@ -454,6 +518,13 @@ function App() {
           onClose={() => { setFormOpen(false); setEditing(null); }}
           onDelete={handleDelete}
           onSubmit={handleSave}
+        />
+      )}
+      {reviewing && (
+        <ReviewDecisionModal
+          content={reviewing}
+          onClose={() => setReviewing(null)}
+          onSubmit={(status, comment) => handleReviewDecision(reviewing, status, comment)}
         />
       )}
     </main>

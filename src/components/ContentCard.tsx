@@ -3,7 +3,6 @@ import type { Content, ContentStatus } from '../features/content-approval/types'
 interface ContentCardProps {
   content: Content;
   onEdit: (content: Content) => void;
-  onApprove: (content: Content) => void;
 }
 
 const statusLabels: Record<ContentStatus, string> = {
@@ -13,7 +12,7 @@ const statusLabels: Record<ContentStatus, string> = {
   aprovado: 'Aprovado',
 };
 
-export default function ContentCard({ content, onEdit, onApprove }: ContentCardProps) {
+export default function ContentCard({ content, onEdit }: ContentCardProps) {
   return (
     <article className="content-card" onClick={() => onEdit(content)}>
       <div className="cover">
@@ -41,17 +40,11 @@ export default function ContentCard({ content, onEdit, onApprove }: ContentCardP
             </a>
           )}
         </div>
-        {content.status !== 'aprovado' && (
-          <button
-            className="button button-subtle"
-            onClick={(event) => {
-              event.stopPropagation();
-              onApprove(content);
-            }}
-            type="button"
-          >
-            Aprovar
-          </button>
+        {content.reviewComments && content.reviewComments.length > 0 && (
+          <section className="programmer-feedback" aria-label="Pareceres da revisão">
+            <strong>Último parecer · {content.reviewComments[content.reviewComments.length - 1].author}</strong>
+            <p>{content.reviewComments[content.reviewComments.length - 1].comment}</p>
+          </section>
         )}
       </div>
     </article>

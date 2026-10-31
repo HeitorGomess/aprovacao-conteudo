@@ -1,5 +1,7 @@
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
-import type { Content } from './types';
+import type { Content, ContentStatus } from './types';
+
+export type EditorRole = 'programador' | 'revisor';
 
 export const supabase = createClient(
   'https://rinsachmljzzzvcgqowi.supabase.co',
@@ -21,15 +23,19 @@ export async function fetchContents(): Promise<Content[]> {
   return ((data ?? []) as ContentRow[]).map((row) => ({ ...row.data, id: row.id }));
 }
 
-export async function verifyEditor(userId: string): Promise<boolean> {
+export async function verifyEditor(userId: string): Promise<EditorRole | null> {
   const { data, error } = await supabase
     .from('panel_editors')
-    .select('user_id')
+    .select('role')
     .eq('user_id', userId)
     .maybeSingle();
 
   if (error) throw error;
-  return Boolean(data);
+  if (!data) return null;
+  if (data.role !== 'programador' && data.role !== 'revisor') {
+    throw new Error('O perfil desta conta não é válido. Peça ao administrador para revisar a autorização.');
+  }
+  return data.role;
 }
 
 export async function saveContent(content: Content): Promise<void> {
@@ -41,6 +47,19 @@ export async function saveContent(content: Content): Promise<void> {
 export async function saveContents(contents: Content[]): Promise<void> {
   const rows = contents.map(({ id, ...data }) => ({ id, data }));
   const { error } = await supabase.from('posts').upsert(rows);
+  if (error) throw error;
+}
+
+export async function submitReviewDecision(
+  postId: string,
+  status: Extract<ContentStatus, 'aprovado' | 'ajustes'>,
+  comment: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('submit_review_decision', {
+    p_post_id: postId,
+    p_status: status,
+    p_comment: comment,
+  });
   if (error) throw error;
 }
 

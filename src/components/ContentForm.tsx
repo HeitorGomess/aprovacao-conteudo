@@ -177,7 +177,7 @@ export default function ContentForm({ initial, onClose, onDelete, onSubmit }: Co
               <textarea value={form.caption} onChange={(event) => update('caption', event.target.value)} maxLength={2000} rows={4} />
             </label>
             <label>
-              Comentário do revisor
+              Observações de produção
               <textarea value={form.note} onChange={(event) => update('note', event.target.value)} maxLength={1000} rows={3} />
             </label>
             <label>
