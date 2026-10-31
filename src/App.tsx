@@ -245,7 +245,7 @@ function App() {
   if (authLoading) {
     return <main className="auth-page"><p className="muted">Verificando acesso…</p></main>;
   }
-  if (!session) {
+  if (!session && !demoMode) {
     return <LoginForm error={authError} onSubmit={handleLogin} />;
   }
 
