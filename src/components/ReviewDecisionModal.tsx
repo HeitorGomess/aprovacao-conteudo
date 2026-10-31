@@ -23,17 +23,16 @@ export default function ReviewDecisionModal({ content, onClose, onSubmit }: Revi
   const [error, setError] = useState('');
 
   async function submit(status: ReviewDecision) {
-    if (!comment.trim()) {
-      setError(status === 'ajustes'
-        ? 'Descreva o que precisa ser alterado antes de devolver a publicação.'
-        : 'Escreva um comentário para registrar seu parecer.');
+    const trimmedComment = comment.trim();
+    if (status === 'ajustes' && !trimmedComment) {
+      setError('Descreva o que precisa ser alterado antes de devolver a publicação.');
       return;
     }
 
     setPending(true);
     setError('');
     try {
-      await onSubmit(status, comment.trim());
+      await onSubmit(status, trimmedComment);
     } catch (reason) {
       setError(getErrorMessage(reason));
       setPending(false);
@@ -81,7 +80,7 @@ export default function ReviewDecisionModal({ content, onClose, onSubmit }: Revi
                 </a>
               )}
             </div>
-            <p className="muted">Confira a publicação e deixe um comentário antes de aprovar ou devolver para ajustes.</p>
+            <p className="muted">O comentário é opcional para aprovar e obrigatório para devolver para ajustes.</p>
             <label>
               Comentário
               <textarea
@@ -90,7 +89,7 @@ export default function ReviewDecisionModal({ content, onClose, onSubmit }: Revi
                 onChange={(event) => setComment(event.target.value)}
                 maxLength={2000}
                 rows={6}
-                placeholder="Escreva seu parecer sobre a publicação…"
+                placeholder="Para ajustes, descreva o que precisa ser alterado…"
               />
             </label>
             {error && <p className="form-error" role="alert">{error}</p>}

@@ -279,7 +279,7 @@ begin
     raise exception 'Decisão de revisão inválida.';
   end if;
 
-  if pg_catalog.length(pg_catalog.btrim(coalesce(p_comment, ''))) = 0 then
+  if p_status = 'ajustes' and pg_catalog.length(pg_catalog.btrim(coalesce(p_comment, ''))) = 0 then
     raise exception 'Escreva um comentário para registrar seu parecer.';
   end if;
 
@@ -311,13 +311,18 @@ begin
       (case
         when pg_catalog.jsonb_typeof(post_data -> 'reviewComments') = 'array' then post_data -> 'reviewComments'
         else '[]'::jsonb
-      end) || pg_catalog.jsonb_build_array(
-        pg_catalog.jsonb_build_object(
-          'at', decision_at,
-          'author', coalesce((select auth.jwt() ->> 'email'), 'Revisor'),
-          'comment', pg_catalog.btrim(p_comment),
-          'decision', p_status
-        )
+      end) || (case
+        when pg_catalog.length(pg_catalog.btrim(coalesce(p_comment, ''))) > 0 then
+          pg_catalog.jsonb_build_array(
+            pg_catalog.jsonb_build_object(
+              'at', decision_at,
+              'author', coalesce((select auth.jwt() ->> 'email'), 'Revisor'),
+              'comment', pg_catalog.btrim(p_comment),
+              'decision', p_status
+            )
+          )
+        else '[]'::jsonb
+      end
       )
   )
   where id = p_post_id;

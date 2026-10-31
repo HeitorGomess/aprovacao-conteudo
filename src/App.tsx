@@ -365,10 +365,11 @@ function App() {
     comment: string,
   ) {
     const now = new Date().toISOString();
+    const normalizedComment = comment.trim();
     const reviewComment: ReviewComment = {
       at: now,
       author: demoMode ? 'Revisor de demonstração' : session?.user.email || 'Revisor',
-      comment,
+      comment: normalizedComment,
       decision: status,
     };
     const updated: Content = {
@@ -376,10 +377,12 @@ function App() {
       status,
       updatedAt: now,
       history: [...content.history.slice(-19), { status, at: now }],
-      reviewComments: [...(content.reviewComments || []), reviewComment],
+      reviewComments: normalizedComment
+        ? [...(content.reviewComments || []), reviewComment]
+        : content.reviewComments,
     };
     try {
-      if (!demoMode) await submitReviewDecision(content.id, status, comment);
+      if (!demoMode) await submitReviewDecision(content.id, status, normalizedComment);
       setContents((current) => current.map((item) => item.id === updated.id ? updated : item));
       setReviewing(null);
       setError('');
