@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import BrandLockup from './BrandLockup';
 
 type AuthMode = 'login' | 'signup' | 'forgot-password' | 'update-password';
 
@@ -100,12 +101,9 @@ export default function LoginForm({
     <main className="auth-page">
       <section className="auth-layout" aria-label="Acesso ao workspace de marketing">
         <div className="auth-story">
-          <a className="auth-brand" href={window.location.pathname} aria-label="Página inicial do workspace">
-            <span className="brand-mark" aria-hidden="true">YS</span>
-            <span>Your Space</span>
-          </a>
+          <BrandLockup className="auth-brand" variant="light" />
           <div className="auth-story-copy">
-            <p className="auth-kicker"><span /> MARKETING WORKSPACE</p>
+            <p className="auth-kicker"><span /> PLANEJAMENTO DE MARKETING</p>
             <h1>Seu próximo grande conteúdo começa aqui.</h1>
             <p className="auth-story-description">
               Um espaço simples para organizar ideias, alinhar pessoas e transformar planejamento em conteúdo publicado.

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import AdminDashboard from './components/AdminDashboard';
+import BrandLockup from './components/BrandLockup';
 import ContentCard from './components/ContentCard';
 import ContentForm from './components/ContentForm';
 import LoginForm from './components/LoginForm';
@@ -465,7 +466,7 @@ function App() {
     return (
       <main className="auth-page">
         <section className="auth-card">
-          <div className="brand-mark" aria-hidden="true">YS</div>
+          <BrandLockup className="auth-card-brand" />
           <h1>{accessCheckError ? 'Não foi possível verificar o acesso' : 'Verificando permissões…'}</h1>
           <p className="muted">
             {accessCheckError || 'Aguarde enquanto confirmamos as permissões desta conta.'}
@@ -487,7 +488,7 @@ function App() {
       return (
         <main className="auth-page">
           <section className="auth-card">
-            <div className="brand-mark" aria-hidden="true">YS</div>
+            <BrandLockup className="auth-card-brand" />
             <h1>Acesso restrito</h1>
             <p className="muted">Somente administradores podem gerenciar os perfis das contas.</p>
             <button className="button" onClick={() => window.location.assign(window.location.pathname)} type="button">
@@ -514,7 +515,7 @@ function App() {
     return (
       <main className="auth-page">
         <section className="auth-card">
-          <div className="brand-mark" aria-hidden="true">YS</div>
+          <BrandLockup className="auth-card-brand" />
           <p className="eyebrow">ACESSO AO WORKSPACE</p>
           <h1>Perfil não configurado</h1>
           <p className="muted">{error || 'Peça ao administrador para atribuir o perfil de programador ou revisor.'}</p>
@@ -538,13 +539,7 @@ function App() {
   return (
     <main className="page-shell">
       <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark" aria-hidden="true">YS</div>
-          <div>
-            <p className="eyebrow">YOUR SPACE · MARKETING</p>
-            <h1>Aprovação de Conteúdo</h1>
-          </div>
-        </div>
+        <BrandLockup />
         <div className="user-menu">
           <span title={demoMode ? 'Dados fictícios desta demonstração' : session?.user.email}>
             {demoMode ? `Demonstração · ${demoRole === 'administrador' ? 'Administrador' : demoRole}` : session?.user.email}

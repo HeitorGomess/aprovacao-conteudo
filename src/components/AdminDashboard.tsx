@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import BrandLockup from './BrandLockup';
 import {
   listPanelAccounts,
   setPanelAccountRole,
@@ -113,13 +114,7 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
   return (
     <main className="page-shell">
       <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark" aria-hidden="true">YS</div>
-          <div>
-            <p className="eyebrow">YOUR SPACE · MARKETING</p>
-            <h1>Gerenciar acessos</h1>
-          </div>
-        </div>
+        <BrandLockup />
         <button className="button" onClick={onBack} type="button">Voltar ao painel</button>
       </header>
 
