@@ -8,7 +8,12 @@ export default function BrandLockup({ className = '', variant = 'default' }: Bra
 
   return (
     <div className={classes}>
-      <span className="brand-mark" aria-hidden="true">YS</span>
+      <span className="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 100 100" focusable="false">
+          <path d="M29 27 50 53 71 27M50 53v25" />
+          <circle cx="50" cy="24" r="7" />
+        </svg>
+      </span>
       <span className="brand-copy">
         <span className="brand-name">Your Space</span>
         <span className="brand-tagline">Do planejamento à publicação.</span>

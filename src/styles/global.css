@@ -43,7 +43,10 @@ a:hover { text-decoration: underline; }
 .brand-tagline { color: var(--muted); font-size: 11px; line-height: 1.35; }
 .brand-lockup-light .brand-name { color: #f3f5ef; }
 .brand-lockup-light .brand-tagline { color: #bdcec4; }
-.brand-mark { display: grid; width: 42px; height: 42px; place-items: center; flex: none; border-radius: 12px; color: #173a33; background: #d3efab; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: -.06em; }
+.brand-mark { display: grid; width: 42px; height: 42px; place-items: center; flex: none; overflow: hidden; border-radius: 12px; background: #1f604c; }
+.brand-mark svg { display: block; width: 76%; height: 76%; overflow: visible; }
+.brand-mark path { fill: none; stroke: #d3efab; stroke-linecap: round; stroke-linejoin: round; stroke-width: 9; }
+.brand-mark circle { fill: #fff; }
 .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
 .user-menu { gap: 12px; color: var(--muted); font-size: 13px; }
 .user-menu span { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
