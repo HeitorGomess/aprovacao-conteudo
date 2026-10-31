@@ -153,6 +153,12 @@ function emptyContent(id: string): Content {
   };
 }
 
+function titleFromCaption(caption: string): string {
+  const firstLine = caption.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || '';
+  const firstSentence = firstLine.match(/^.*?[.!?](?:\s|$)/)?.[0].trim() || firstLine;
+  return firstSentence.length > 80 ? `${firstSentence.slice(0, 77).trimEnd()}...` : firstSentence;
+}
+
 export function importContentCsv(text: string): Content[] {
   const rows = parseCsv(text.replace(/^\uFEFF/, ''));
   const isCampaignTemplate = rows.some((row) => row.some((value) => normalizeHeader(value) === 'apontamentos'))
@@ -165,7 +171,42 @@ export function importContentCsv(text: string): Content[] {
         row.some((value) => ['tema', 'titulo', 'title'].includes(normalizeHeader(value))),
       );
   if (headerIndex < 0) {
-    throw new Error('Não encontrei cabeçalho com coluna Tema ou Título no CSV.');
+      if (isCampaignTemplate) {
+        const campaignHeaders = rows.find((row) =>
+          row.some((value) => normalizeHeader(value) === 'texto')
+          && row.some((value) => normalizeHeader(value) === 'apontamentos'),
+        );
+        if (campaignHeaders) {
+          const headers = campaignHeaders.map((value) => columnAliases[normalizeHeader(value)]);
+          const captionIndex = headers.indexOf('caption');
+          const noteIndex = headers.indexOf('note');
+          const hasMultipleChannels = rows
+            .slice(0, rows.indexOf(campaignHeaders))
+            .flat()
+            .join(' ')
+            .toLocaleLowerCase('pt-BR')
+            .includes('instagram | facebook | linkedin');
+          const datedPosts = rows.filter((row) => parseDateParts(row[0] || '') && Boolean(row[captionIndex]?.trim()));
+
+          if (datedPosts.length > 0) {
+            const contents = datedPosts.map((row) => {
+              const content = emptyContent(`csv-${crypto.randomUUID()}`);
+              content.date = normalizeDate(row[0], new Date().getFullYear());
+              content.caption = row[captionIndex]?.trim() || '';
+              content.title = titleFromCaption(content.caption);
+              content.note = noteIndex >= 0 ? row[noteIndex]?.trim() || '' : '';
+              if (hasMultipleChannels) content.channel = 'Multicanal';
+              content.history = [{ status: content.status, at: content.updatedAt }];
+              return content;
+            }).filter((content) => content.date);
+            if (contents.length === 0) {
+              throw new Error('Encontrei a planilha, mas não achei posts com datas válidas.');
+            }
+            return contents;
+          }
+        }
+      }
+      throw new Error('Não encontrei cabeçalho com coluna Tema ou Título no CSV.');
   }
 
   const headers = rows[headerIndex].map((value) => columnAliases[normalizeHeader(value)]);
