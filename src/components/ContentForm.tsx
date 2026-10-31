@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import type { Content, ContentFormData, ContentStatus } from '../features/content-approval/types';
+import type { Content, ContentFormData, ContentStatus, ReviewComment } from '../features/content-approval/types';
 
 interface ContentFormProps {
   initial?: Content | null;
+  isAdmin: boolean;
   onClose: () => void;
   onDelete?: (content: Content) => Promise<void>;
+  onResetReviewComments?: (content: Content) => Promise<void>;
   onSubmit: (data: ContentFormData) => Promise<void>;
 }
 
@@ -69,7 +71,14 @@ function resizeImage(file: File): Promise<string> {
   });
 }
 
-export default function ContentForm({ initial, onClose, onDelete, onSubmit }: ContentFormProps) {
+export default function ContentForm({
+  initial,
+  isAdmin,
+  onClose,
+  onDelete,
+  onResetReviewComments,
+  onSubmit,
+}: ContentFormProps) {
   const [form, setForm] = useState<ContentFormData>(() => ({
     title: initial?.title || '',
     date: initial?.date || new Date().toISOString().slice(0, 10),
@@ -81,6 +90,7 @@ export default function ContentForm({ initial, onClose, onDelete, onSubmit }: Co
     status: initial?.status || 'rascunho',
     coverData: initial?.coverData || '',
   }));
+  const [reviewComments, setReviewComments] = useState<ReviewComment[]>(initial?.reviewComments || []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
@@ -119,6 +129,23 @@ export default function ContentForm({ initial, onClose, onDelete, onSubmit }: Co
       await onDelete(initial);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível excluir.');
+      setPending(false);
+    }
+  }
+
+  async function handleResetReviewComments() {
+    if (!initial || !onResetReviewComments || !window.confirm(
+      'Resetar todas as observações dos revisores desta publicação? O status, o histórico e as observações de produção serão mantidos.',
+    )) return;
+
+    setPending(true);
+    setError('');
+    try {
+      await onResetReviewComments(initial);
+      setReviewComments([]);
+    } catch (reason) {
+      setError(getErrorMessage(reason));
+    } finally {
       setPending(false);
     }
   }
@@ -180,6 +207,32 @@ export default function ContentForm({ initial, onClose, onDelete, onSubmit }: Co
               Observações de produção
               <textarea value={form.note} onChange={(event) => update('note', event.target.value)} maxLength={1000} rows={3} />
             </label>
+            {isAdmin && reviewComments.length > 0 && (
+              <section className="review-comments-admin" aria-label="Observações dos revisores">
+                <div className="review-comments-admin-heading">
+                  <div>
+                    <strong>Observações dos revisores ({reviewComments.length})</strong>
+                    <p>Resetar remove os pareceres, sem alterar o status nem o histórico.</p>
+                  </div>
+                  <button
+                    className="button button-danger"
+                    disabled={pending}
+                    onClick={() => void handleResetReviewComments()}
+                    type="button"
+                  >
+                    Resetar observações
+                  </button>
+                </div>
+                <ul>
+                  {reviewComments.map((review, index) => (
+                    <li key={`${review.at}-${index}`}>
+                      <strong>{review.author}</strong>
+                      <span>{review.comment}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <label>
               Capa
               <input type="file" accept="image/*" onChange={(event) => void handleFile(event.target.files?.[0])} />

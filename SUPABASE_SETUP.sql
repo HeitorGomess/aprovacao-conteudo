@@ -327,6 +327,49 @@ $$;
 revoke all on function public.submit_review_decision(text, text, text) from public;
 grant execute on function public.submit_review_decision(text, text, text) to authenticated;
 
+create or replace function public.reset_review_comments(p_post_id text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  post_data jsonb;
+  reset_at text := pg_catalog.to_char(
+    pg_catalog.clock_timestamp() at time zone 'UTC',
+    'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+  );
+begin
+  if (select auth.uid()) is null then
+    raise exception 'É necessário entrar para resetar os pareceres.';
+  end if;
+
+  if not exists (
+    select 1 from public.panel_admins
+    where user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem resetar os pareceres.';
+  end if;
+
+  select data into post_data
+  from public.posts
+  where id = p_post_id
+  for update;
+
+  if not found then
+    raise exception 'A publicação não existe mais.';
+  end if;
+
+  update public.posts
+  set data = (post_data - 'reviewComments') || pg_catalog.jsonb_build_object('updatedAt', reset_at),
+      updated_at = pg_catalog.clock_timestamp()
+  where id = p_post_id;
+end;
+$$;
+
+revoke all on function public.reset_review_comments(text) from public;
+grant execute on function public.reset_review_comments(text) to authenticated;
+
 do $$
 begin
   if not exists (

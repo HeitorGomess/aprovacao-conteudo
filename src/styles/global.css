@@ -233,6 +233,14 @@ tbody tr:last-child td { border-bottom: 0; }
 .review-detail-note { display: grid; gap: 5px; padding: 12px; border-radius: 8px; background: #f2f3ef; }
 .review-detail-note strong { color: var(--muted); font-size: 11px; }
 .review-detail-link { width: fit-content; }
+.review-comments-admin { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); }
+.review-comments-admin-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.review-comments-admin-heading strong { font-size: 13px; }
+.review-comments-admin-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.review-comments-admin ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.review-comments-admin li { display: grid; gap: 3px; padding: 9px 10px; border-radius: 7px; background: var(--surface); font-size: 12px; }
+.review-comments-admin li strong { color: var(--muted); font-size: 11px; }
+.review-comments-admin li span { white-space: pre-wrap; overflow-wrap: anywhere; }
 .review-modal-body label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
 .review-modal textarea { width: 100%; min-height: 130px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); resize: vertical; }
 .review-modal-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); }

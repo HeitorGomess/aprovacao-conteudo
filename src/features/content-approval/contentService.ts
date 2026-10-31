@@ -134,6 +134,13 @@ export async function submitReviewDecision(
   if (workspaceDecisionError) throw workspaceDecisionError;
 }
 
+export async function resetReviewComments(postId: string): Promise<void> {
+  const { error } = await supabase.rpc('reset_review_comments', {
+    p_post_id: postId,
+  });
+  if (error) throw error;
+}
+
 export async function deleteContent(id: string): Promise<void> {
   const { error } = await supabase.from('posts').delete().eq('id', id);
   if (error) throw error;

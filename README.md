@@ -25,6 +25,8 @@ O cliente usa uma chave **publishable** no navegador. Ela é pública por defini
 
 O painel do revisor mostra publicações em revisão, aprovadas e devolvidas para ajustes nas visualizações Cards, Calendário e Tabela; rascunhos continuam restritos aos programadores. Para habilitar a leitura dos pareceres já registrados, execute novamente o arquivo completo [`SUPABASE_SETUP.sql`](./SUPABASE_SETUP.sql) no SQL Editor.
 
+Administradores podem abrir uma publicação e usar **Resetar observações** para apagar todos os pareceres dos revisores daquele conteúdo. O status, o histórico e as observações de produção são preservados. A função protegida do banco exige que um administrador esteja autenticado; execute novamente o `SUPABASE_SETUP.sql` no SQL Editor para habilitá-la.
+
 ## Desenvolvimento local
 
 ```sh

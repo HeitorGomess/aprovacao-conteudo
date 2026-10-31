@@ -11,6 +11,7 @@ import {
   fetchContents,
   saveContent,
   saveContents,
+  resetReviewComments,
   submitReviewDecision,
   subscribeToContents,
   supabase,
@@ -348,6 +349,14 @@ function App() {
     setContents((current) => current.filter((item) => item.id !== content.id));
     setFormOpen(false);
     setEditing(null);
+  }
+
+  async function handleResetReviewComments(content: Content) {
+    if (!demoMode) await resetReviewComments(content.id);
+    const updated = { ...content, reviewComments: undefined, updatedAt: new Date().toISOString() };
+    setContents((current) => current.map((item) => item.id === content.id ? updated : item));
+    setEditing(updated);
+    setError('');
   }
 
   async function handleReviewDecision(
@@ -733,8 +742,10 @@ function App() {
         <ContentForm
           key={editing?.id || 'new-content'}
           initial={editing}
+          isAdmin={activeIsAdmin}
           onClose={() => { setFormOpen(false); setEditing(null); }}
           onDelete={handleDelete}
+          onResetReviewComments={handleResetReviewComments}
           onSubmit={handleSave}
         />
       )}
