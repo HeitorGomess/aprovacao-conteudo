@@ -389,7 +389,7 @@ function App() {
     });
     if (signUpError?.message.toLowerCase().includes('email rate limit exceeded')) {
       throw new Error(
-        'O limite de envio de e-mails do Supabase foi atingido. O SMTP padrão permite até 2 e-mails por hora. Configure um SMTP próprio em Authentication → SMTP e ajuste Authentication → Rate Limits no painel do Supabase.',
+        'O limite de envio de e-mails foi atingido. Confira se o SMTP personalizado está ativo e verifique Authentication → Rate Limits → Emails sent. O SMTP padrão do Supabase tem uma cota separada de até 2 e-mails por hora.',
       );
     }
     if (signUpError) throw new Error(`Não foi possível criar a conta: ${signUpError.message}`);
