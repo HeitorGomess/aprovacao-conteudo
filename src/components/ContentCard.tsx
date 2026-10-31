@@ -1,4 +1,5 @@
 import type { Content, ContentStatus } from '../features/content-approval/types';
+import { getChannelLabel, getContentTypeLabel } from '../features/content-approval/contentLabels';
 
 interface ContentCardProps {
   content: Content;
@@ -19,18 +20,14 @@ export default function ContentCard({ content, onEdit }: ContentCardProps) {
         {content.coverData ? (
           <img src={content.coverData} alt={`Capa de ${content.title}`} loading="lazy" />
         ) : (
-          <div className="cover-placeholder">{content.channel || 'Sem capa'}</div>
+          <div className="cover-placeholder">{getChannelLabel(content.channel) || 'Sem capa'}</div>
         )}
         <time className="date-chip" dateTime={content.date}>
           {new Date(`${content.date}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
         </time>
       </div>
       <div className="card-body">
-        <div className="card-meta">
-          <span>{content.channel}</span>
-          <span>{content.format}</span>
-        </div>
-        <h2>{content.title}</h2>
+        <h2>{getContentTypeLabel(content.channel, content.format)}</h2>
         <p className="caption-preview">{content.caption || 'Sem legenda'}</p>
         <div className="card-footer">
           <span className={`status-pill status-${content.status}`}>{statusLabels[content.status]}</span>

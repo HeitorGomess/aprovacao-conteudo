@@ -10,7 +10,17 @@ interface ContentFormProps {
   onSubmit: (data: ContentFormData) => Promise<void>;
 }
 
-const channels = ['Instagram', 'TikTok', 'LinkedIn', 'YouTube', 'Facebook', 'Blog', 'E-mail', 'Multicanal', 'Outro'];
+const channels = [
+  { value: 'Instagram', label: 'Instagram' },
+  { value: 'TikTok', label: 'TikTok' },
+  { value: 'LinkedIn', label: 'LinkedIn' },
+  { value: 'YouTube', label: 'YouTube' },
+  { value: 'Facebook', label: 'Facebook' },
+  { value: 'Blog', label: 'Blog' },
+  { value: 'E-mail', label: 'E-mail' },
+  { value: 'Multicanal', label: 'Redes sociais' },
+  { value: 'Outro', label: 'Outro' },
+];
 const formats = ['Feed', 'Carrossel', 'Reels', 'Stories', 'Vídeo', 'Artigo', 'Newsletter', 'Anúncio'];
 const statuses: Array<{ value: ContentStatus; label: string }> = [
   { value: 'rascunho', label: 'Rascunho' },
@@ -82,7 +92,7 @@ export default function ContentForm({
   const [form, setForm] = useState<ContentFormData>(() => ({
     title: initial?.title || '',
     date: initial?.date || new Date().toISOString().slice(0, 10),
-    channel: initial?.channel || channels[0],
+    channel: initial?.channel || channels[0].value,
     format: initial?.format || formats[0],
     link: initial?.link || '',
     caption: initial?.caption || '',
@@ -174,7 +184,7 @@ export default function ContentForm({
               <label>
                 Canal
                 <select value={form.channel} onChange={(event) => update('channel', event.target.value)}>
-                  {channels.map((channel) => <option key={channel}>{channel}</option>)}
+                  {channels.map((channel) => <option key={channel.value} value={channel.value}>{channel.label}</option>)}
                 </select>
               </label>
               <label>

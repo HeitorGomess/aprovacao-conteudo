@@ -1,4 +1,5 @@
 import type { Content, ContentStatus } from '../features/content-approval/types';
+import { getChannelLabel, getContentTypeLabel } from '../features/content-approval/contentLabels';
 
 interface ReviewCardProps {
   content: Content;
@@ -34,7 +35,7 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
         {content.coverData ? (
           <img src={content.coverData} alt={`Capa de ${content.title}`} loading="lazy" />
         ) : (
-          <div className="cover-placeholder">{content.channel || 'Sem capa'}</div>
+          <div className="cover-placeholder">{getChannelLabel(content.channel) || 'Sem capa'}</div>
         )}
         <time className="date-chip" dateTime={content.date}>
           {new Date(`${content.date}T12:00:00`).toLocaleDateString('pt-BR', {
@@ -45,11 +46,7 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
         </time>
       </div>
       <div className="review-card-body">
-        <div className="card-meta">
-          <span>{content.channel}</span>
-          <span>{content.format}</span>
-        </div>
-        <h2>{content.title}</h2>
+        <h2>{getContentTypeLabel(content.channel, content.format)}</h2>
         <p className="review-caption">{content.caption || 'Sem legenda'}</p>
         <div className="card-footer">
           <span className={`status-pill status-${content.status}`}>{statusLabels[content.status]}</span>

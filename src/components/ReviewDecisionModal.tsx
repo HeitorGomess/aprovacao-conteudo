@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Content, ContentStatus } from '../features/content-approval/types';
+import { getChannelLabel } from '../features/content-approval/contentLabels';
 
 type ReviewDecision = Extract<ContentStatus, 'aprovado' | 'ajustes'>;
 
@@ -55,10 +56,10 @@ export default function ReviewDecisionModal({ content, onClose, onSubmit }: Revi
               {content.coverData ? (
                 <img className="review-detail-image" src={content.coverData} alt={`Imagem da publicação: ${content.title}`} />
               ) : (
-                <div className="review-detail-placeholder">{content.channel || 'Sem imagem'}</div>
+                <div className="review-detail-placeholder">{getChannelLabel(content.channel) || 'Sem imagem'}</div>
               )}
               <div className="review-detail-meta">
-                <span>{content.channel}</span>
+                <span>{getChannelLabel(content.channel)}</span>
                 <span>{content.format}</span>
                 <span>{new Date(`${content.date}T12:00:00`).toLocaleDateString('pt-BR', {
                   day: '2-digit',

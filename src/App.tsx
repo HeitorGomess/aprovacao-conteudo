@@ -20,6 +20,7 @@ import {
 } from './features/content-approval/contentService';
 import { createMockContents } from './features/content-approval/mockData';
 import { importContentCsv } from './features/content-approval/csvImport';
+import { getChannelLabel } from './features/content-approval/contentLabels';
 import type { Content, ContentFormData, ContentStatus, ReviewComment } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
@@ -633,7 +634,7 @@ function App() {
         />
         <select aria-label="Filtrar por canal" value={channelFilter} onChange={(event) => setChannelFilter(event.target.value)}>
           <option value="">Todos os canais</option>
-          {channels.map((channel) => <option key={channel}>{channel}</option>)}
+          {channels.map((channel) => <option key={channel} value={channel}>{getChannelLabel(channel)}</option>)}
         </select>
       </section>
 
@@ -686,7 +687,7 @@ function App() {
                 <tr className={isReviewer ? '' : 'clickable-row'} key={content.id} onClick={isReviewer ? undefined : () => openEditContent(content)}>
                   <td>{dateLabel(content.date)}</td>
                   <td className="table-title">{content.title}</td>
-                  <td>{content.channel}</td>
+                  <td>{getChannelLabel(content.channel)}</td>
                   <td>{content.format}</td>
                   <td><span className={`status-pill status-${content.status}`}>{statusLabels[content.status]}</span></td>
                   <td>{content.link ? <a href={content.link} onClick={(event) => event.stopPropagation()} target="_blank" rel="noopener noreferrer">Abrir ↗</a> : '—'}</td>
