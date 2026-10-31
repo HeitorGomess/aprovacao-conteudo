@@ -17,6 +17,16 @@ const statuses: Array<{ value: ContentStatus; label: string }> = [
   { value: 'aprovado', label: 'Aprovado' },
 ];
 
+function getErrorMessage(reason: unknown): string {
+  if (reason instanceof Error) return reason.message;
+  if (typeof reason === 'object' && reason !== null && 'message' in reason && typeof reason.message === 'string') {
+    const details = 'details' in reason && typeof reason.details === 'string' ? reason.details : '';
+    const hint = 'hint' in reason && typeof reason.hint === 'string' ? reason.hint : '';
+    return [reason.message, details, hint].filter(Boolean).join(' ');
+  }
+  return 'Não foi possível salvar. Tente novamente.';
+}
+
 function resizeImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -85,7 +95,7 @@ export default function ContentForm({ initial, onClose, onDelete, onSubmit }: Co
     try {
       await onSubmit(form);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível salvar.');
+      setError(getErrorMessage(reason));
     } finally {
       setPending(false);
     }
