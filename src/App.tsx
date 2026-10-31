@@ -598,7 +598,6 @@ function App() {
         </div>
       </section>
 
-      {!isReviewer ? (
       <section className="summary-panel" aria-label="Resumo do mês">
         <div className="status-summary">
           {statuses.map((status) => {
@@ -623,12 +622,6 @@ function App() {
           <strong>{completion}%</strong>
         </div>
       </section>
-      ) : (
-        <section className="review-queue-banner" aria-label="Fila de revisão">
-          <strong>{monthContents.filter((content) => content.status === 'revisao').length}</strong>
-          <span>publicações aguardando seu parecer em {monthName}</span>
-        </section>
-      )}
 
       <section className="filters" aria-label="Filtros">
         <input
