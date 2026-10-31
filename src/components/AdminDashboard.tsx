@@ -1,0 +1,164 @@
+import { useEffect, useState } from 'react';
+import {
+  listPanelAccounts,
+  setPanelAccountRole,
+  type AccountRole,
+  type EditorRole,
+  type PanelAccount,
+} from '../features/content-approval/contentService';
+
+interface AdminDashboardProps {
+  demoMode: boolean;
+  onBack: () => void;
+}
+
+const demoAccounts: PanelAccount[] = [
+  { userId: 'demo-owner', email: 'admin@exemplo.com', role: 'administrador', isAdmin: true },
+  { userId: 'demo-programmer', email: 'programador@exemplo.com', role: 'programador', isAdmin: false },
+  { userId: 'demo-reviewer', email: 'revisor@exemplo.com', role: 'revisor', isAdmin: false },
+  { userId: 'demo-no-access', email: 'convidado@exemplo.com', role: 'sem_acesso', isAdmin: false },
+];
+
+const roleLabels: Record<AccountRole, string> = {
+  administrador: 'Administrador',
+  programador: 'Programador',
+  revisor: 'Revisor',
+  sem_acesso: 'Sem acesso',
+};
+
+function getErrorMessage(reason: unknown): string {
+  if (reason instanceof Error) return reason.message;
+  if (typeof reason === 'object' && reason !== null && 'message' in reason && typeof reason.message === 'string') {
+    return reason.message;
+  }
+  return 'Ocorreu um erro inesperado.';
+}
+
+export default function AdminDashboard({ demoMode, onBack }: AdminDashboardProps) {
+  const [accounts, setAccounts] = useState<PanelAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [savingUserId, setSavingUserId] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (demoMode) {
+      setAccounts(demoAccounts);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    listPanelAccounts()
+      .then((loadedAccounts) => {
+        if (active) setAccounts(loadedAccounts);
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(`Não foi possível carregar as contas: ${getErrorMessage(reason)}`);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [demoMode]);
+
+  async function changeRole(userId: string, role: EditorRole | 'sem_acesso') {
+    setSavingUserId(userId);
+    setError('');
+    try {
+      if (demoMode) {
+        setAccounts((current) => current.map((account) =>
+          account.userId === userId ? { ...account, role } : account,
+        ));
+      } else {
+        await setPanelAccountRole(userId, role);
+        setAccounts(await listPanelAccounts());
+      }
+    } catch (reason) {
+      setError(`Não foi possível atualizar o perfil: ${getErrorMessage(reason)}`);
+    } finally {
+      setSavingUserId('');
+    }
+  }
+
+  return (
+    <main className="page-shell">
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-mark" aria-hidden="true">A</div>
+          <div>
+            <p className="eyebrow">MARKETING · WORKSPACE</p>
+            <h1>Gerenciar acessos</h1>
+          </div>
+        </div>
+        <button className="button" onClick={onBack} type="button">Voltar ao painel</button>
+      </header>
+
+      {demoMode && (
+        <div className="notice demo-banner" role="status">
+          Demonstração. As alterações de perfil não são salvas.
+        </div>
+      )}
+
+      <section className="admin-intro">
+        <p className="eyebrow">ADMINISTRAÇÃO</p>
+        <h2>Contas e permissões</h2>
+        <p>Escolha o que cada conta pode fazer. As alterações são aplicadas imediatamente.</p>
+      </section>
+
+      <section className="permission-legend" aria-label="Descrição dos perfis">
+        <article><strong>Programador</strong><span>Cria, importa, edita e exclui publicações.</span></article>
+        <article><strong>Revisor</strong><span>Analisa as publicações em revisão e registra seu parecer. Não pode editar nem anexar arquivos.</span></article>
+        <article><strong>Sem acesso</strong><span>Não pode entrar no painel nem visualizar publicações.</span></article>
+      </section>
+
+      {error && <div className="notice" role="alert">{error}</div>}
+
+      {loading ? (
+        <div className="empty-state"><p>Carregando contas…</p></div>
+      ) : accounts.length === 0 ? (
+        <div className="empty-state">
+          <h2>Nenhuma conta encontrada</h2>
+          <p>Convide as pessoas em Authentication → Users no Supabase e atualize esta tela.</p>
+        </div>
+      ) : (
+        <section className="account-list" aria-label="Contas cadastradas">
+          <div className="account-list-heading">
+            <span>Conta</span>
+            <span>Perfil de acesso</span>
+          </div>
+          {accounts.map((account) => (
+            <div className="account-row" key={account.userId}>
+              <div className="account-identity">
+                <span className="account-avatar" aria-hidden="true">{account.email.slice(0, 1).toUpperCase()}</span>
+                <span>{account.email}</span>
+              </div>
+              <div className="account-role">
+                {account.isAdmin ? (
+                  <span className="role-badge role-administrator">{roleLabels.administrador}</span>
+                ) : (
+                  <select
+                    aria-label={`Perfil de ${account.email}`}
+                    disabled={savingUserId === account.userId}
+                    value={account.role}
+                    onChange={(event) => void changeRole(
+                      account.userId,
+                      event.target.value as EditorRole | 'sem_acesso',
+                    )}
+                  >
+                    <option value="sem_acesso">{roleLabels.sem_acesso}</option>
+                    <option value="programador">{roleLabels.programador}</option>
+                    <option value="revisor">{roleLabels.revisor}</option>
+                  </select>
+                )}
+                {savingUserId === account.userId && <span className="muted">Salvando…</span>}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+    </main>
+  );
+}

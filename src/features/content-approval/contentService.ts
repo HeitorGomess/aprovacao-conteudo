@@ -2,6 +2,19 @@ import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
 import type { Content, ContentStatus } from './types';
 
 export type EditorRole = 'programador' | 'revisor';
+export type AccountRole = EditorRole | 'sem_acesso' | 'administrador';
+
+export interface PanelAccount {
+  userId: string;
+  email: string;
+  role: AccountRole;
+  isAdmin: boolean;
+}
+
+export interface EditorAccess {
+  role: EditorRole | null;
+  isAdmin: boolean;
+}
 
 export const supabase = createClient(
   'https://rinsachmljzzzvcgqowi.supabase.co',
@@ -23,19 +36,48 @@ export async function fetchContents(): Promise<Content[]> {
   return ((data ?? []) as ContentRow[]).map((row) => ({ ...row.data, id: row.id }));
 }
 
-export async function verifyEditor(userId: string): Promise<EditorRole | null> {
-  const { data, error } = await supabase
+export async function verifyEditor(userId: string): Promise<EditorAccess> {
+  const [editorResult, adminResult] = await Promise.all([
+    supabase
     .from('panel_editors')
     .select('role')
     .eq('user_id', userId)
-    .maybeSingle();
+    .maybeSingle(),
+    supabase
+      .from('panel_admins')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle(),
+  ]);
 
-  if (error) throw error;
-  if (!data) return null;
-  if (data.role !== 'programador' && data.role !== 'revisor') {
+  if (editorResult.error) throw editorResult.error;
+  if (adminResult.error) throw adminResult.error;
+  if (editorResult.data && editorResult.data.role !== 'programador' && editorResult.data.role !== 'revisor') {
     throw new Error('O perfil desta conta não é válido. Peça ao administrador para revisar a autorização.');
   }
-  return data.role;
+  return {
+    role: editorResult.data?.role || null,
+    isAdmin: Boolean(adminResult.data),
+  };
+}
+
+export async function listPanelAccounts(): Promise<PanelAccount[]> {
+  const { data, error } = await supabase.rpc('list_panel_accounts');
+  if (error) throw error;
+  return (data || []).map((account: { user_id: string; email: string; role: AccountRole; is_admin: boolean }) => ({
+    userId: account.user_id,
+    email: account.email,
+    role: account.role,
+    isAdmin: account.is_admin,
+  }));
+}
+
+export async function setPanelAccountRole(userId: string, role: EditorRole | 'sem_acesso'): Promise<void> {
+  const { error } = await supabase.rpc('set_panel_account_role', {
+    p_user_id: userId,
+    p_role: role,
+  });
+  if (error) throw error;
 }
 
 export async function saveContent(content: Content): Promise<void> {

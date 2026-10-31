@@ -90,6 +90,24 @@ a:hover { text-decoration: underline; }
 .demo-banner { border-color: #c5caff; color: #273a9c; background: #f3f4ff; }
 .review-queue-banner { display: flex; align-items: center; gap: 12px; margin: 12px 0; padding: 14px 16px; border: 1px solid #d6dbd3; border-radius: 12px; background: var(--surface); color: var(--muted); font-size: 14px; }
 .review-queue-banner strong { color: var(--accent); font-family: 'Space Grotesk', sans-serif; font-size: 24px; }
+.admin-intro { margin: 30px 0 18px; }
+.admin-intro h2 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 28px; letter-spacing: -.035em; }
+.admin-intro > p:last-child { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+.permission-legend { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+.permission-legend article { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.permission-legend article strong { font-family: 'Space Grotesk', sans-serif; font-size: 14px; }
+.permission-legend article span { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.account-list { overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.account-list-heading, .account-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 260px); align-items: center; gap: 20px; padding: 12px 16px; }
+.account-list-heading { color: var(--muted); background: #f7f8f5; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.account-row { min-height: 64px; border-top: 1px solid var(--line); }
+.account-identity, .account-role { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.account-identity { font-size: 13px; overflow-wrap: anywhere; }
+.account-avatar { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 50%; color: var(--accent); background: #eef0ff; font-weight: 700; }
+.account-role select { width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.account-role .muted { flex: none; font-size: 11px; }
+.role-badge { display: inline-flex; padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.role-administrator { color: #273a9c; background: #eef0ff; }
 
 .content-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
 .content-card { display: flex; min-width: 0; overflow: hidden; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; transition: border-color .15s, transform .15s; }
@@ -201,6 +219,10 @@ tbody tr:last-child td { border-bottom: 0; }
   .status-pill { font-size: 10px; }
   .auth-card { padding: 24px; }
   .form-grid { grid-template-columns: 1fr; }
+  .permission-legend { grid-template-columns: 1fr; }
+  .account-list-heading, .account-row { grid-template-columns: minmax(0, 1fr) minmax(135px, 42%); gap: 10px; padding-inline: 10px; }
+  .account-list-heading { font-size: 9px; }
+  .account-identity { font-size: 11px; }
 }
 @media (max-width: 390px) {
   .content-grid { grid-template-columns: 1fr; }

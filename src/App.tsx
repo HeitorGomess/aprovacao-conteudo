@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import AdminDashboard from './components/AdminDashboard';
 import ContentCard from './components/ContentCard';
 import ContentForm from './components/ContentForm';
 import LoginForm from './components/LoginForm';
@@ -53,13 +54,24 @@ function dateLabel(date: string): string {
   });
 }
 
+function getAdminDashboardUrl(): string {
+  const url = new URL(window.location.href);
+  url.searchParams.set('admin', '1');
+  return url.toString();
+}
+
 function App() {
   const demoMode = new URLSearchParams(window.location.search).get('demo') === '1';
-  const demoRole: EditorRole = new URLSearchParams(window.location.search).get('role') === 'revisor'
+  const demoRoleParam = new URLSearchParams(window.location.search).get('role');
+  const demoRole: EditorRole | 'administrador' = demoRoleParam === 'revisor'
     ? 'revisor'
-    : 'programador';
+    : demoRoleParam === 'admin'
+      ? 'administrador'
+      : 'programador';
+  const adminView = new URLSearchParams(window.location.search).get('admin') === '1';
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<EditorRole | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [contents, setContents] = useState<Content[]>(() => demoMode ? createMockContents() : []);
@@ -86,6 +98,7 @@ function App() {
       if (active) {
         setSession(nextSession);
         setRole(null);
+        setIsAdmin(false);
         setAuthError('');
         setAuthLoading(false);
       }
@@ -128,15 +141,16 @@ function App() {
     setError('');
     async function loadWorkspace() {
       try {
-        const editorRole = await verifyEditor(userId);
+        const access = await verifyEditor(userId);
         if (!active) return;
-        setRole(editorRole);
-        if (!editorRole) {
+        setRole(access.role);
+        setIsAdmin(access.isAdmin);
+        if (!access.role && !access.isAdmin) {
           setContents([]);
           setError('Esta conta ainda não recebeu um perfil no painel. Peça ao administrador para autorizar seu acesso.');
           return;
         }
-        setContents(await fetchContents());
+        if (access.role) setContents(await fetchContents());
         unsubscribe = subscribeToContents(
           setContents,
           (reason) => setError(`Problema na sincronização: ${getErrorMessage(reason)}`),
@@ -301,9 +315,39 @@ function App() {
   if (!session && !demoMode) {
     return <LoginForm error={authError} onSubmit={handleLogin} />;
   }
-  const activeRole = demoMode ? demoRole : role;
+  const activeIsAdmin = demoMode ? demoRole === 'administrador' : isAdmin;
+  const activeRole = demoMode
+    ? demoRole === 'administrador' ? 'programador' : demoRole
+    : role;
   if (!activeRole && loading) {
     return <main className="auth-page"><p className="muted">Verificando perfil de acesso…</p></main>;
+  }
+  if (adminView) {
+    if (!activeIsAdmin) {
+      return (
+        <main className="auth-page">
+          <section className="auth-card">
+            <div className="brand-mark" aria-hidden="true">A</div>
+            <h1>Acesso restrito</h1>
+            <p className="muted">Somente administradores podem gerenciar os perfis das contas.</p>
+            <button className="button" onClick={() => window.location.assign(window.location.pathname)} type="button">
+              Voltar ao painel
+            </button>
+          </section>
+        </main>
+      );
+    }
+
+    return (
+      <AdminDashboard
+        demoMode={demoMode}
+        onBack={() => {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('admin');
+          window.location.assign(url);
+        }}
+      />
+    );
   }
   if (!activeRole) {
     return (
@@ -313,6 +357,9 @@ function App() {
           <p className="eyebrow">ACESSO AO WORKSPACE</p>
           <h1>Perfil não configurado</h1>
           <p className="muted">{error || 'Peça ao administrador para atribuir o perfil de programador ou revisor.'}</p>
+          {activeIsAdmin && (
+            <a className="button button-primary" href={getAdminDashboardUrl()}>Gerenciar contas</a>
+          )}
           <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
         </section>
       </main>
@@ -339,8 +386,9 @@ function App() {
         </div>
         <div className="user-menu">
           <span title={demoMode ? 'Dados fictícios desta demonstração' : session?.user.email}>
-            {demoMode ? 'Modo demonstração' : session?.user.email}
+            {demoMode ? `Demonstração · ${demoRole === 'administrador' ? 'Administrador' : demoRole}` : session?.user.email}
           </span>
+          {activeIsAdmin && <a className="button" href={getAdminDashboardUrl()}>Gerenciar acessos</a>}
           <button className="button" onClick={() => demoMode ? exitDemoMode() : void handleLogout()} type="button">
             {demoMode ? 'Sair do demo' : 'Sair'}
           </button>

@@ -9,6 +9,10 @@ create table if not exists public.panel_editors (
   role text not null default 'programador'
 );
 
+create table if not exists public.panel_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade
+);
+
 alter table public.panel_editors
   add column if not exists role text not null default 'programador';
 
@@ -29,9 +33,11 @@ $$;
 
 alter table public.posts enable row level security;
 alter table public.panel_editors enable row level security;
+alter table public.panel_admins enable row level security;
 
 grant select, insert, update, delete on public.posts to authenticated;
 grant select on public.panel_editors to authenticated;
+grant select on public.panel_admins to authenticated;
 
 drop policy if exists posts_authenticated_all on public.posts;
 drop policy if exists posts_select_editors on public.posts;
@@ -44,10 +50,16 @@ create policy posts_select_editors
   for select
   to authenticated
   using (
-    exists (
+    (
+      data ->> 'status' = 'revisao'
+      and exists (
+        select 1 from public.panel_editors
+        where user_id = (select auth.uid()) and role = 'revisor'
+      )
+    )
+    or exists (
       select 1 from public.panel_editors
-      where user_id = (select auth.uid())
-        and role in ('programador', 'revisor')
+      where user_id = (select auth.uid()) and role = 'programador'
     )
   );
 
@@ -97,6 +109,92 @@ create policy panel_editors_read_self
   to authenticated
   using (user_id = (select auth.uid()));
 
+drop policy if exists panel_admins_read_self on public.panel_admins;
+create policy panel_admins_read_self
+  on public.panel_admins
+  for select
+  to authenticated
+  using (user_id = (select auth.uid()));
+
+create or replace function public.list_panel_accounts()
+returns table (
+  user_id uuid,
+  email text,
+  role text,
+  is_admin boolean
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.panel_admins
+    where panel_admins.user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem listar as contas.';
+  end if;
+
+  return query
+  select
+    users.id,
+    coalesce(users.email, ''),
+    case
+      when admins.user_id is not null then 'administrador'
+      else coalesce(editors.role, 'sem_acesso')
+    end,
+    admins.user_id is not null
+  from auth.users as users
+  left join public.panel_editors as editors on editors.user_id = users.id
+  left join public.panel_admins as admins on admins.user_id = users.id
+  order by lower(coalesce(users.email, ''));
+end;
+$$;
+
+create or replace function public.set_panel_account_role(
+  p_user_id uuid,
+  p_role text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.panel_admins
+    where panel_admins.user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem alterar os perfis.';
+  end if;
+
+  if p_user_id is null or p_role is null
+    or p_role not in ('programador', 'revisor', 'sem_acesso') then
+    raise exception 'Conta ou perfil inválido.';
+  end if;
+
+  if exists (
+    select 1 from public.panel_admins
+    where panel_admins.user_id = p_user_id
+  ) then
+    raise exception 'O perfil de administrador não pode ser alterado por esta tela.';
+  end if;
+
+  if p_role = 'sem_acesso' then
+    delete from public.panel_editors where panel_editors.user_id = p_user_id;
+  else
+    insert into public.panel_editors (user_id, role)
+    values (p_user_id, p_role)
+    on conflict (user_id) do update set role = excluded.role;
+  end if;
+end;
+$$;
+
+revoke all on function public.list_panel_accounts() from public;
+revoke all on function public.set_panel_account_role(uuid, text) from public;
+grant execute on function public.list_panel_accounts() to authenticated;
+grant execute on function public.set_panel_account_role(uuid, text) to authenticated;
+
 create or replace function public.submit_review_decision(
   p_post_id text,
   p_status text,
@@ -123,8 +221,8 @@ begin
   from public.panel_editors
   where user_id = (select auth.uid());
 
-  if editor_role is null or editor_role not in ('programador', 'revisor') then
-    raise exception 'Seu perfil não pode revisar publicações.';
+  if editor_role is distinct from 'revisor' then
+    raise exception 'Somente revisores podem enviar pareceres.';
   end if;
 
   if p_status is null or p_status not in ('aprovado', 'ajustes') then
