@@ -129,9 +129,9 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
 
       <section className="admin-intro admin-intro-row">
         <div>
-          <p className="eyebrow">ADMINISTRAÇÃO</p>
-          <h2>Contas e permissões</h2>
-          <p>Escolha o que cada conta pode fazer. As alterações são aplicadas imediatamente.</p>
+          <p className="eyebrow">EMPRESA YOUR SPACE</p>
+          <h2>Acessos do Your Space</h2>
+          <p>Defina o perfil das contas nesta empresa. Para gerenciar outras empresas, volte ao painel e abra a opção Equipe.</p>
         </div>
         {!demoMode && (
           <button
@@ -145,10 +145,10 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
         )}
       </section>
 
-      <section className="permission-legend" aria-label="Descrição dos perfis">
-        <article><strong>Programador</strong><span>Cria, importa, edita e exclui publicações.</span></article>
-        <article><strong>Revisor</strong><span>Analisa as publicações em revisão e registra seu parecer. Não pode editar nem anexar arquivos.</span></article>
-        <article><strong>Sem acesso</strong><span>Não pode entrar no painel nem visualizar publicações.</span></article>
+      <section className="permission-legend" aria-label="Descrição dos perfis do Your Space">
+        <article><strong>Programador</strong><span>Cria, importa, edita e exclui publicações no Your Space.</span></article>
+        <article><strong>Revisor</strong><span>Analisa publicações em revisão e registra pareceres no Your Space.</span></article>
+        <article><strong>Sem acesso</strong><span>Não tem acesso ao Your Space. O perfil em outras empresas não é alterado.</span></article>
       </section>
 
       {error && <div className="notice" role="alert">{error}</div>}

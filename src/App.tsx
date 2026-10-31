@@ -7,17 +7,23 @@ import ContentForm from './components/ContentForm';
 import LoginForm from './components/LoginForm';
 import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
+import WorkspaceSwitcher, { WorkspaceSetupPage } from './components/WorkspaceSwitcher';
+import WorkspaceTeamDashboard from './components/WorkspaceTeamDashboard';
 import {
+  createWorkspace,
   deleteContent,
   fetchContents,
+  listUserWorkspaces,
   saveContent,
   saveContents,
   resetReviewComments,
   submitReviewDecision,
   subscribeToContents,
   supabase,
-  verifyEditor,
+  verifyPanelAdmin,
   type EditorRole,
+  type WorkspaceRole,
+  type WorkspaceSummary,
 } from './features/content-approval/contentService';
 import { createMockContents } from './features/content-approval/mockData';
 import { importContentCsv } from './features/content-approval/csvImport';
@@ -63,6 +69,19 @@ function getAdminDashboardUrl(): string {
   return url.toString();
 }
 
+function getWorkspaceTeamUrl(): string {
+  const url = new URL(window.location.href);
+  url.searchParams.set('team', '1');
+  return url.toString();
+}
+
+function updateWorkspaceUrl(slug: string): void {
+  const url = new URL(window.location.href);
+  url.searchParams.set('workspace', slug);
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  window.sessionStorage.setItem('activeWorkspaceSlug', slug);
+}
+
 function App() {
   const demoMode = new URLSearchParams(window.location.search).get('demo') === '1';
   const demoRoleParam = new URLSearchParams(window.location.search).get('role');
@@ -72,11 +91,18 @@ function App() {
       ? 'administrador'
       : 'programador';
   const adminView = new URLSearchParams(window.location.search).get('admin') === '1';
+  const teamView = new URLSearchParams(window.location.search).get('team') === '1';
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<EditorRole | null>(null);
+  const [role, setRole] = useState<WorkspaceRole | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [accessUserId, setAccessUserId] = useState<string | null>(null);
   const [accessCheckError, setAccessCheckError] = useState('');
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceSummary | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(!demoMode);
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [passwordRecovery, setPasswordRecovery] = useState(false);
@@ -101,6 +127,20 @@ function App() {
 
   useEffect(() => {
     if (demoMode) {
+      const demoWorkspace: WorkspaceSummary = {
+        id: 'demo-workspace',
+        name: 'Your Space',
+        slug: 'your-space',
+        role: demoRole === 'administrador' ? 'administrador' : demoRole,
+        isOwner: demoRole === 'administrador',
+      };
+      setWorkspaces([demoWorkspace]);
+      setActiveWorkspace(demoWorkspace);
+      setRole(demoWorkspace.role);
+      setIsAdmin(demoRole === 'administrador');
+      setIsSystemAdmin(demoRole === 'administrador');
+      setAccessUserId('demo');
+      setWorkspaceLoading(false);
       setAuthLoading(false);
       return;
     }
@@ -114,8 +154,13 @@ function App() {
           authUserId.current = nextUserId;
           setRole(null);
           setIsAdmin(false);
+          setIsSystemAdmin(false);
           setAccessUserId(null);
           setAccessCheckError('');
+          setWorkspaces([]);
+          setActiveWorkspace(null);
+          setWorkspaceError('');
+          setWorkspaceLoading(Boolean(nextSession));
           setLoading(Boolean(nextSession));
         }
         if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
@@ -135,8 +180,13 @@ function App() {
         authUserId.current = nextUserId;
         setRole(null);
         setIsAdmin(false);
+        setIsSystemAdmin(false);
         setAccessUserId(null);
         setAccessCheckError('');
+        setWorkspaces([]);
+        setActiveWorkspace(null);
+        setWorkspaceError('');
+        setWorkspaceLoading(Boolean(data.session));
         setLoading(Boolean(data.session));
       }
       setSession(data.session);
@@ -152,6 +202,7 @@ function App() {
       if (active) {
         setAuthError(getErrorMessage(reason));
         setAuthLoading(false);
+        setWorkspaceLoading(false);
       }
     });
 
@@ -177,6 +228,7 @@ function App() {
       setSession(null);
       setRole(null);
       setIsAdmin(false);
+      setIsSystemAdmin(false);
       setAccessUserId(null);
       setSignupConfirmationNotice(true);
     }).catch((reason: unknown) => {
@@ -188,69 +240,99 @@ function App() {
   }, [demoMode, session]);
 
   useEffect(() => {
-    if (demoMode) {
+    if (demoMode) return;
+    if (!session) {
+      setWorkspaces([]);
+      setActiveWorkspace(null);
+      setWorkspaceLoading(false);
       setLoading(false);
       return;
     }
 
-    if (!session) {
+    let active = true;
+    const userId = session.user.id;
+    setWorkspaceLoading(true);
+    setWorkspaceError('');
+    setAccessCheckError('');
+
+    async function loadUserWorkspaces() {
+      try {
+        const [workspaceResult, adminResult] = await Promise.all([
+          listUserWorkspaces(),
+          verifyPanelAdmin(userId),
+        ]);
+        if (!active) return;
+        const urlSlug = new URLSearchParams(window.location.search).get('workspace');
+        const savedSlug = window.sessionStorage.getItem('activeWorkspaceSlug');
+        const selected = urlSlug
+          ? workspaceResult.find((workspace) => workspace.slug === urlSlug)
+          : workspaceResult.find((workspace) => workspace.slug === savedSlug) || workspaceResult[0];
+        if (urlSlug && !selected) {
+          throw new Error('Sua conta não tem acesso à empresa selecionada. Selecione uma empresa disponível ou peça um convite ao administrador.');
+        }
+        setWorkspaces(workspaceResult);
+        setIsSystemAdmin(adminResult);
+        setActiveWorkspace(selected || null);
+        setRole(selected?.role || null);
+        setIsAdmin(selected?.role === 'administrador' || adminResult);
+        setAccessUserId(userId);
+        setAccessCheckError('');
+        if (selected) updateWorkspaceUrl(selected.slug);
+        setContents([]);
+      } catch (reason) {
+        if (!active) return;
+        const message = getErrorMessage(reason);
+        setWorkspaceError(`Não foi possível carregar suas empresas: ${message}`);
+        setAccessCheckError(message);
+        setAccessUserId(userId);
+      } finally {
+        if (active) setWorkspaceLoading(false);
+      }
+    }
+    void loadUserWorkspaces();
+
+    return () => {
+      active = false;
+    };
+  }, [demoMode, session?.user.id]);
+
+  useEffect(() => {
+    if (demoMode || !session) {
+      setLoading(false);
+      return;
+    }
+    if (!activeWorkspace || adminView || teamView) {
       setContents([]);
       setLoading(false);
       return;
     }
-    const userId = session.user.id;
 
     let active = true;
     let unsubscribe: (() => void) | undefined;
-    let accessVerified = false;
     setLoading(true);
     setError('');
-    async function loadWorkspace() {
-      try {
-        const [accessResult, contentsResult] = await Promise.allSettled([
-          verifyEditor(userId),
-          adminView ? Promise.resolve(null) : fetchContents(),
-        ]);
-        if (accessResult.status === 'rejected') throw accessResult.reason;
-        const access = accessResult.value;
+    fetchContents(activeWorkspace.id)
+      .then((loadedContents) => {
         if (!active) return;
-        accessVerified = true;
-        setRole(access.role);
-        setIsAdmin(access.isAdmin);
-        setAccessUserId(userId);
-        setAccessCheckError('');
-        if (!access.role && !access.isAdmin) {
-          setContents([]);
-          setError('Esta conta ainda não recebeu um perfil no painel. Peça ao administrador para autorizar seu acesso.');
-          return;
-        }
-        if (adminView) return;
-        if (contentsResult.status === 'rejected') throw contentsResult.reason;
-        setContents(access.role ? contentsResult.value || [] : []);
+        setContents(loadedContents);
         unsubscribe = subscribeToContents(
+          activeWorkspace.id,
           setContents,
           (reason) => setError(`Problema na sincronização: ${getErrorMessage(reason)}`),
         );
-      } catch (reason) {
-        if (active) {
-          const message = getErrorMessage(reason);
-          if (!accessVerified) {
-            setAccessCheckError(`Não foi possível verificar as permissões desta conta: ${message}`);
-            setAccessUserId(userId);
-          }
-          setError(`Não foi possível carregar os conteúdos: ${message}`);
-        }
-      } finally {
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(`Não foi possível carregar os conteúdos: ${getErrorMessage(reason)}`);
+      })
+      .finally(() => {
         if (active) setLoading(false);
-      }
-    }
-    void loadWorkspace();
+      });
 
     return () => {
       active = false;
       unsubscribe?.();
     };
-  }, [demoMode, session?.user.id]);
+  }, [activeWorkspace?.id, adminView, demoMode, session, teamView]);
 
   const monthContents = useMemo(
     () => contents.filter((content) => content.date.startsWith(localMonthKey(month))),
@@ -283,7 +365,7 @@ function App() {
       options: { emailRedirectTo: confirmationUrl.toString() },
     });
     if (signUpError) throw new Error(`Não foi possível criar a conta: ${signUpError.message}`);
-    return 'Conta criada. Confirme seu e-mail para receber acesso automático como revisor.';
+    return 'Conta criada. Confirme seu e-mail para criar uma empresa ou pedir para ser adicionado a uma equipe.';
   }
 
   async function handlePasswordReset(email: string): Promise<string> {
@@ -333,7 +415,10 @@ function App() {
           history: [{ status: data.status, at: now }],
         };
 
-    if (!demoMode) await saveContent(content);
+    if (!demoMode) {
+      if (!activeWorkspace) throw new Error('Selecione uma empresa antes de salvar o conteúdo.');
+      await saveContent(activeWorkspace.id, content);
+    }
     setContents((current) => {
       const index = current.findIndex((item) => item.id === content.id);
       if (index < 0) return [...current, content];
@@ -347,14 +432,20 @@ function App() {
   }
 
   async function handleDelete(content: Content) {
-    if (!demoMode) await deleteContent(content.id);
+    if (!demoMode) {
+      if (!activeWorkspace) throw new Error('Selecione uma empresa antes de excluir o conteúdo.');
+      await deleteContent(activeWorkspace.id, content.id);
+    }
     setContents((current) => current.filter((item) => item.id !== content.id));
     setFormOpen(false);
     setEditing(null);
   }
 
   async function handleResetReviewComments(content: Content) {
-    if (!demoMode) await resetReviewComments(content.id);
+    if (!demoMode) {
+      if (!activeWorkspace) throw new Error('Selecione uma empresa antes de resetar os pareceres.');
+      await resetReviewComments(activeWorkspace.id, content.id);
+    }
     const updated = { ...content, reviewComments: undefined, updatedAt: new Date().toISOString() };
     setContents((current) => current.map((item) => item.id === content.id ? updated : item));
     setEditing(updated);
@@ -384,7 +475,10 @@ function App() {
         : content.reviewComments,
     };
     try {
-      if (!demoMode) await submitReviewDecision(content.id, status, normalizedComment);
+      if (!demoMode) {
+        if (!activeWorkspace) throw new Error('Selecione uma empresa antes de registrar o parecer.');
+        await submitReviewDecision(activeWorkspace.id, content.id, status, normalizedComment);
+      }
       setContents((current) => current.map((item) => item.id === updated.id ? updated : item));
       setReviewing(null);
       setError('');
@@ -400,7 +494,8 @@ function App() {
     try {
       const imported = importContentCsv(await file.text());
       if (!demoMode) {
-        await saveContents(imported);
+        if (!activeWorkspace) throw new Error('Selecione uma empresa antes de importar conteúdos.');
+        await saveContents(activeWorkspace.id, imported);
       }
       setContents((current) => [...current, ...imported]);
       const earliestDate = imported.map((content) => content.date).sort()[0];
@@ -425,6 +520,58 @@ function App() {
     window.location.assign(url);
   }
 
+  async function handleCreateWorkspace(name: string): Promise<void> {
+    setCreatingWorkspace(true);
+    setWorkspaceError('');
+    try {
+      const workspace: WorkspaceSummary = demoMode
+        ? {
+            id: `demo-workspace-${Date.now()}`,
+            name,
+            slug: `${name.toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
+            role: 'administrador',
+            isOwner: true,
+          }
+        : await createWorkspace(name);
+      setWorkspaces((current) => [...current, workspace]);
+      setActiveWorkspace(workspace);
+      setRole(workspace.role);
+      setIsAdmin(true);
+      updateWorkspaceUrl(workspace.slug);
+    } finally {
+      setCreatingWorkspace(false);
+    }
+  }
+
+  async function handleSetupCreateWorkspace(name: string): Promise<void> {
+    try {
+      await handleCreateWorkspace(name);
+    } catch (reason) {
+      setWorkspaceError(`Não foi possível criar a empresa: ${getErrorMessage(reason)}`);
+    }
+  }
+
+  function handleWorkspaceChange(workspaceId: string): void {
+    const workspace = workspaces.find((item) => item.id === workspaceId);
+    if (!workspace) return;
+    setActiveWorkspace(workspace);
+    setRole(workspace.role);
+    setIsAdmin(workspace.role === 'administrador' || isSystemAdmin);
+    setWorkspaceError('');
+    setContents([]);
+    setError('');
+    setStatusFilter('');
+    setChannelFilter('');
+    setQuery('');
+    updateWorkspaceUrl(workspace.slug);
+  }
+
+  function navigateBackFromWorkspacePage(parameter: 'admin' | 'team'): void {
+    const url = new URL(window.location.href);
+    url.searchParams.delete(parameter);
+    window.location.assign(url);
+  }
+
   if (authLoading) {
     return <main className="auth-page"><p className="muted">Verificando acesso…</p></main>;
   }
@@ -432,7 +579,7 @@ function App() {
     return (
       <LoginForm
         error={authError}
-        notice={signupConfirmationNotice ? 'E-mail confirmado! Entre com seu e-mail e senha. O acesso ao painel depende do perfil definido pelo administrador.' : ''}
+        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para criar uma empresa ou pedir para ser adicionado a uma equipe.' : ''}
         recovery
         onSubmit={handleLogin}
         onSignUp={handleSignUp}
@@ -445,7 +592,7 @@ function App() {
     return (
       <LoginForm
         error={authError}
-        notice={signupConfirmationNotice ? 'E-mail confirmado! Entre com seu e-mail e senha. O acesso ao painel depende do perfil definido pelo administrador.' : ''}
+        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para criar uma empresa ou pedir para ser adicionado a uma equipe.' : ''}
         onSubmit={handleLogin}
         onSignUp={handleSignUp}
         onRequestPasswordReset={handlePasswordReset}
@@ -458,10 +605,10 @@ function App() {
     ? demoRole === 'administrador' ? 'programador' : demoRole
     : role;
   if (
-    adminView
+    (adminView || teamView)
     && !demoMode
     && session
-    && accessUserId !== session.user.id
+    && (workspaceLoading || accessUserId !== session.user.id)
   ) {
     return (
       <main className="auth-page">
@@ -469,7 +616,7 @@ function App() {
           <BrandLockup className="auth-card-brand" />
           <h1>{accessCheckError ? 'Não foi possível verificar o acesso' : 'Verificando permissões…'}</h1>
           <p className="muted">
-            {accessCheckError || 'Aguarde enquanto confirmamos as permissões desta conta.'}
+            {accessCheckError || 'Aguarde enquanto confirmamos as empresas e permissões desta conta.'}
           </p>
           {accessCheckError && (
             <button className="button" onClick={() => window.location.reload()} type="button">
@@ -480,17 +627,17 @@ function App() {
       </main>
     );
   }
-  if (!activeRole && loading) {
-    return <main className="auth-page"><p className="muted">Verificando perfil de acesso…</p></main>;
+  if (workspaceLoading) {
+    return <main className="auth-page"><p className="muted">Carregando empresas e permissões…</p></main>;
   }
   if (adminView) {
-    if (!activeIsAdmin) {
+    if (!demoMode && !isSystemAdmin) {
       return (
         <main className="auth-page">
           <section className="auth-card">
             <BrandLockup className="auth-card-brand" />
             <h1>Acesso restrito</h1>
-            <p className="muted">Somente administradores podem gerenciar os perfis das contas.</p>
+            <p className="muted">Somente o administrador geral pode gerenciar as contas globais.</p>
             <button className="button" onClick={() => window.location.assign(window.location.pathname)} type="button">
               Voltar ao painel
             </button>
@@ -503,11 +650,47 @@ function App() {
       <AdminDashboard
         demoMode={demoMode}
         onExitDemo={exitDemoMode}
-        onBack={() => {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('admin');
-          window.location.assign(url);
-        }}
+        onBack={() => navigateBackFromWorkspacePage('admin')}
+      />
+    );
+  }
+  if (!activeWorkspace && !demoMode) {
+    return (
+      <WorkspaceSetupPage
+        error={workspaceError}
+        pending={creatingWorkspace}
+        onCreate={handleSetupCreateWorkspace}
+        onLogout={() => void handleLogout()}
+      />
+    );
+  }
+  if (teamView) {
+    if (!activeIsAdmin) {
+      return (
+        <main className="auth-page">
+          <section className="auth-card">
+            <BrandLockup className="auth-card-brand" />
+            <h1>Acesso restrito</h1>
+            <p className="muted">Somente administradores desta empresa podem gerenciar a equipe.</p>
+            <button className="button" onClick={() => navigateBackFromWorkspacePage('team')} type="button">
+              Voltar à empresa
+            </button>
+          </section>
+        </main>
+      );
+    }
+
+    return (
+      <WorkspaceTeamDashboard
+        demoMode={demoMode}
+        workspaceId={activeWorkspace?.id || 'demo-workspace'}
+        workspaceName={activeWorkspace?.name || 'Your Space'}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspace?.id || ''}
+        onChangeWorkspace={handleWorkspaceChange}
+        onCreateWorkspace={handleCreateWorkspace}
+        onBack={() => navigateBackFromWorkspacePage('team')}
+        onExitDemo={exitDemoMode}
       />
     );
   }
@@ -517,11 +700,8 @@ function App() {
         <section className="auth-card">
           <BrandLockup className="auth-card-brand" />
           <p className="eyebrow">ACESSO AO WORKSPACE</p>
-          <h1>Perfil não configurado</h1>
-          <p className="muted">{error || 'Peça ao administrador para atribuir o perfil de programador ou revisor.'}</p>
-          {activeIsAdmin && (
-            <a className="button button-primary" href={getAdminDashboardUrl()}>Gerenciar contas</a>
-          )}
+          <h1>Empresa não disponível</h1>
+          <p className="muted">{workspaceError || error || 'Crie uma empresa ou peça ao administrador para adicionar sua conta à equipe.'}</p>
           <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
         </section>
       </main>
@@ -539,12 +719,26 @@ function App() {
   return (
     <main className="page-shell">
       <header className="topbar">
-        <BrandLockup />
+        <div className="workspace-header-main">
+          <BrandLockup />
+          {activeWorkspace && (
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              activeWorkspaceId={activeWorkspace.id}
+              canManage={activeIsAdmin}
+              onChange={handleWorkspaceChange}
+              onCreateWorkspace={handleCreateWorkspace}
+              onManageTeam={() => window.location.assign(getWorkspaceTeamUrl())}
+            />
+          )}
+        </div>
         <div className="user-menu">
           <span title={demoMode ? 'Dados fictícios desta demonstração' : session?.user.email}>
             {demoMode ? `Demonstração · ${demoRole === 'administrador' ? 'Administrador' : demoRole}` : session?.user.email}
           </span>
-          {activeIsAdmin && <a className="button" href={getAdminDashboardUrl()}>Gerenciar acessos</a>}
+          {(demoMode ? demoRole === 'administrador' : isSystemAdmin) && (
+            <a className="button" href={getAdminDashboardUrl()}>Acessos do Your Space</a>
+          )}
           <button className="button" onClick={() => demoMode ? exitDemoMode() : void handleLogout()} type="button">
             {demoMode ? 'Sair do demo' : 'Sair'}
           </button>
