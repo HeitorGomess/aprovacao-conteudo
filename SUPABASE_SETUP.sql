@@ -338,3 +338,48 @@ begin
   end if;
 end;
 $$;
+
+do $$
+begin
+  if to_regclass('public.workspace_members') is not null
+    and to_regclass('public.workspaces') is not null then
+    execute $migration$
+      insert into public.panel_editors (user_id, role)
+      select member.user_id,
+        case when member.role = 'revisor' then 'revisor' else 'programador' end
+      from public.workspace_members as member
+      join public.workspaces as workspace on workspace.id = member.workspace_id
+      where workspace.slug = 'your-space'
+      on conflict (user_id) do update set role = excluded.role
+    $migration$;
+  end if;
+end;
+$$;
+
+drop policy if exists posts_select_workspace_members on public.posts;
+drop policy if exists posts_insert_workspace_programmers on public.posts;
+drop policy if exists posts_update_workspace_programmers on public.posts;
+drop policy if exists posts_delete_workspace_programmers on public.posts;
+
+do $$
+begin
+  if to_regclass('public.workspace_members') is not null then
+    execute 'drop policy if exists workspace_members_read_accessible on public.workspace_members';
+  end if;
+  if to_regclass('public.workspaces') is not null then
+    execute 'drop policy if exists workspaces_read_accessible on public.workspaces';
+  end if;
+end;
+$$;
+
+drop function if exists public.create_workspace(text, text);
+drop function if exists public.list_user_workspaces();
+drop function if exists public.verify_workspace_access(text);
+drop function if exists public.list_workspace_members(uuid);
+drop function if exists public.add_workspace_member(uuid, text, text);
+drop function if exists public.set_workspace_member_role(uuid, uuid, text);
+drop function if exists public.submit_review_decision(uuid, text, text, text);
+
+alter table public.posts drop column if exists workspace_id;
+drop table if exists public.workspace_members;
+drop table if exists public.workspaces;
