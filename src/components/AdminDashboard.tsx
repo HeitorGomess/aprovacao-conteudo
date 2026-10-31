@@ -34,6 +34,9 @@ function getErrorMessage(reason: unknown): string {
     if (message.includes('Could not find the function') || message.includes('list_panel_accounts')) {
       return 'A função de gestão não está configurada neste projeto Supabase. Execute novamente o arquivo SUPABASE_SETUP.sql no SQL Editor do projeto conectado ao app.';
     }
+    if (message.includes('structure of query does not match function result type')) {
+      return 'A função de gestão no Supabase está com tipos de retorno incompatíveis. No SQL Editor, execute novamente a definição atualizada de list_panel_accounts do arquivo SUPABASE_SETUP.sql.';
+    }
     if (message.includes('Somente administradores')) {
       return 'Esta sessão não está cadastrada como administradora no projeto Supabase conectado ao app.';
     }

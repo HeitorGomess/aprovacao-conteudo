@@ -185,13 +185,13 @@ begin
 
   return query
   select
-    users.id,
-    coalesce(users.email, ''),
-    case
+    users.id::uuid,
+    coalesce(users.email, '')::text,
+    (case
       when admins.user_id is not null then 'administrador'
       else coalesce(editors.role, 'sem_acesso')
-    end,
-    admins.user_id is not null
+    end)::text,
+    (admins.user_id is not null)::boolean
   from auth.users as users
   left join public.panel_editors as editors on editors.user_id = users.id
   left join public.panel_admins as admins on admins.user_id = users.id
