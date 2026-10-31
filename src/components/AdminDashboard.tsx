@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   listPanelAccounts,
   setPanelAccountRole,
@@ -48,34 +48,10 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
   const [savingUserId, setSavingUserId] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [accountSearch, setAccountSearch] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    if (demoMode) {
-      setAccounts(demoAccounts);
-      setLoading(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    listPanelAccounts()
-      .then((loadedAccounts) => {
-        if (active) setAccounts(loadedAccounts);
-      })
-      .catch((reason: unknown) => {
-        if (active) setError(`Não foi possível carregar as contas: ${getErrorMessage(reason)}`);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [demoMode]);
-
-  async function refreshAccounts() {
+  const refreshAccounts = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     setRefreshing(true);
     setError('');
     try {
@@ -84,8 +60,33 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
       setError(`Não foi possível atualizar as contas: ${getErrorMessage(reason)}`);
     } finally {
       setRefreshing(false);
+      setLoading(false);
     }
-  }
+  }, [demoMode]);
+
+  useEffect(() => {
+    void refreshAccounts(true);
+    if (demoMode) return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshAccounts();
+    };
+    const intervalId = window.setInterval(refreshWhenVisible, 30_000);
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [demoMode, refreshAccounts]);
+
+  const visibleAccounts = useMemo(() => {
+    const normalizedSearch = accountSearch.trim().toLocaleLowerCase('pt-BR');
+    if (!normalizedSearch) return accounts;
+    return accounts.filter((account) => account.email.toLocaleLowerCase('pt-BR').includes(normalizedSearch));
+  }, [accounts, accountSearch]);
 
   async function changeRole(userId: string, role: EditorRole | 'sem_acesso') {
     setSavingUserId(userId);
@@ -159,7 +160,7 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
       ) : accounts.length === 0 ? (
         <div className="empty-state">
           <h2>Nenhuma conta encontrada</h2>
-          <p>Confira se o cadastro aparece em Supabase → Authentication → Users e se este app está conectado ao mesmo projeto. Contas recém-cadastradas, mesmo sem confirmar o e-mail, devem aparecer aqui.</p>
+          <p>Não há contas registradas para listar. Novos cadastros aparecem automaticamente depois de serem criados; esta tela atualiza a lista ao voltar para a aba.</p>
           <button
             className="button"
             disabled={refreshing}
@@ -170,40 +171,64 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
           </button>
         </div>
       ) : (
-        <section className="account-list" aria-label="Contas cadastradas">
-          <div className="account-list-heading">
-            <span>Conta ({accounts.length})</span>
-            <span>Perfil de acesso</span>
+        <>
+          <div className="account-tools">
+            <label>
+              <span className="sr-only">Buscar conta por e-mail</span>
+              <input
+                type="search"
+                placeholder="Buscar conta por e-mail"
+                value={accountSearch}
+                onChange={(event) => setAccountSearch(event.target.value)}
+              />
+            </label>
+            <span className="muted">
+              {visibleAccounts.length} de {accounts.length} contas
+            </span>
           </div>
-          {accounts.map((account) => (
-            <div className="account-row" key={account.userId}>
-              <div className="account-identity">
-                <span className="account-avatar" aria-hidden="true">{account.email.slice(0, 1).toUpperCase()}</span>
-                <span>{account.email}</span>
-              </div>
-              <div className="account-role">
-                {account.isAdmin ? (
-                  <span className="role-badge role-administrator">{roleLabels.administrador}</span>
-                ) : (
-                  <select
-                    aria-label={`Perfil de ${account.email}`}
-                    disabled={savingUserId === account.userId}
-                    value={account.role}
-                    onChange={(event) => void changeRole(
-                      account.userId,
-                      event.target.value as EditorRole | 'sem_acesso',
-                    )}
-                  >
-                    <option value="sem_acesso">{roleLabels.sem_acesso}</option>
-                    <option value="programador">{roleLabels.programador}</option>
-                    <option value="revisor">{roleLabels.revisor}</option>
-                  </select>
-                )}
-                {savingUserId === account.userId && <span className="muted">Salvando…</span>}
-              </div>
+          {visibleAccounts.length === 0 ? (
+            <div className="empty-state">
+              <h2>Nenhuma conta corresponde à busca</h2>
+              <p>Confira o e-mail digitado ou limpe a busca para ver todas as contas.</p>
+              <button className="button" onClick={() => setAccountSearch('')} type="button">Limpar busca</button>
             </div>
-          ))}
-        </section>
+          ) : (
+            <section className="account-list" aria-label="Contas cadastradas">
+              <div className="account-list-heading">
+                <span>Conta ({visibleAccounts.length})</span>
+                <span>Perfil de acesso</span>
+              </div>
+              {visibleAccounts.map((account) => (
+                <div className="account-row" key={account.userId}>
+                  <div className="account-identity">
+                    <span className="account-avatar" aria-hidden="true">{account.email.slice(0, 1).toUpperCase()}</span>
+                    <span>{account.email}</span>
+                  </div>
+                  <div className="account-role">
+                    {account.isAdmin ? (
+                      <span className="role-badge role-administrator">{roleLabels.administrador}</span>
+                    ) : (
+                      <select
+                        aria-label={`Perfil de ${account.email}`}
+                        disabled={savingUserId === account.userId}
+                        value={account.role}
+                        onChange={(event) => void changeRole(
+                          account.userId,
+                          event.target.value as EditorRole | 'sem_acesso',
+                        )}
+                      >
+                        <option value="sem_acesso">{roleLabels.sem_acesso}</option>
+                        <option value="programador">{roleLabels.programador}</option>
+                        <option value="revisor">{roleLabels.revisor}</option>
+                      </select>
+                    )}
+                    {savingUserId === account.userId && <span className="muted">Salvando…</span>}
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+        </>
       )}
     </main>
   );

@@ -104,6 +104,10 @@ a:hover { text-decoration: underline; }
 .account-list-heading, .account-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 260px); align-items: center; gap: 20px; padding: 12px 16px; }
 .account-list-heading { color: var(--muted); background: #f7f8f5; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .account-row { min-height: 64px; border-top: 1px solid var(--line); }
+.account-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+.account-tools label { width: min(100%, 380px); }
+.account-tools input { width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .account-identity, .account-role { display: flex; min-width: 0; align-items: center; gap: 10px; }
 .account-identity { font-size: 13px; overflow-wrap: anywhere; }
 .account-avatar { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 50%; color: #245747; background: #edf5e6; font-weight: 700; }
@@ -278,6 +282,8 @@ tbody tr:last-child td { border-bottom: 0; }
   .permission-legend { grid-template-columns: 1fr; }
   .admin-intro-row { align-items: flex-start; flex-direction: column; }
   .demo-banner { align-items: flex-start; flex-direction: column; }
+  .account-tools { align-items: stretch; flex-direction: column; }
+  .account-tools label { width: 100%; }
   .account-list-heading, .account-row { grid-template-columns: minmax(0, 1fr) minmax(135px, 42%); gap: 10px; padding-inline: 10px; }
   .account-list-heading { font-size: 9px; }
   .account-identity { font-size: 11px; }
