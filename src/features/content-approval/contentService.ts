@@ -126,6 +126,11 @@ export async function submitReviewDecision(
     ...params,
     p_workspace_id: workspace.id,
   });
+  if (workspaceDecisionError?.code === 'PGRST202') {
+    throw new Error(
+      'O Supabase ainda está com a assinatura antiga da função de parecer. No SQL Editor, execute novamente o arquivo completo SUPABASE_SETUP.sql e tente outra vez.',
+    );
+  }
   if (workspaceDecisionError) throw workspaceDecisionError;
 }
 

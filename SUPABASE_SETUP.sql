@@ -243,6 +243,8 @@ revoke all on function public.set_panel_account_role(uuid, text) from public;
 grant execute on function public.list_panel_accounts() to authenticated;
 grant execute on function public.set_panel_account_role(uuid, text) to authenticated;
 
+drop function if exists public.submit_review_decision(uuid, text, text, text);
+
 create or replace function public.submit_review_decision(
   p_post_id text,
   p_status text,
@@ -378,8 +380,9 @@ drop function if exists public.verify_workspace_access(text);
 drop function if exists public.list_workspace_members(uuid);
 drop function if exists public.add_workspace_member(uuid, text, text);
 drop function if exists public.set_workspace_member_role(uuid, uuid, text);
-drop function if exists public.submit_review_decision(uuid, text, text, text);
 
 alter table public.posts drop column if exists workspace_id;
 drop table if exists public.workspace_members;
 drop table if exists public.workspaces;
+
+notify pgrst, 'reload schema';
