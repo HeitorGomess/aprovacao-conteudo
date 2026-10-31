@@ -16,8 +16,13 @@ interface WorkspaceTeamDashboardProps {
   workspaceName: string;
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
+  canManage: boolean;
+  isSystemAdmin: boolean;
   onChangeWorkspace: (workspaceId: string) => void;
   onCreateWorkspace: (name: string) => Promise<void>;
+  onRenameWorkspace: (workspaceId: string, name: string) => Promise<void>;
+  onArchiveWorkspace: (workspaceId: string) => Promise<void>;
+  onRestoreWorkspace: (workspaceId: string) => Promise<void>;
   onBack: () => void;
   onExitDemo: () => void;
 }
@@ -62,8 +67,13 @@ export default function WorkspaceTeamDashboard({
   workspaceName,
   workspaces,
   activeWorkspaceId,
+  canManage,
+  isSystemAdmin,
   onChangeWorkspace,
   onCreateWorkspace,
+  onRenameWorkspace,
+  onArchiveWorkspace,
+  onRestoreWorkspace,
   onBack,
   onExitDemo,
 }: WorkspaceTeamDashboardProps) {
@@ -170,10 +180,13 @@ export default function WorkspaceTeamDashboard({
           <WorkspaceSwitcher
             workspaces={workspaces}
             activeWorkspaceId={activeWorkspaceId}
-            canManage={false}
+            canManage={canManage}
+            isSystemAdmin={isSystemAdmin}
             onChange={onChangeWorkspace}
             onCreateWorkspace={onCreateWorkspace}
-            onManageTeam={() => undefined}
+            onRenameWorkspace={onRenameWorkspace}
+            onArchiveWorkspace={onArchiveWorkspace}
+            onRestoreWorkspace={onRestoreWorkspace}
           />
         </div>
         <button className="button" onClick={onBack} type="button">Voltar à empresa</button>

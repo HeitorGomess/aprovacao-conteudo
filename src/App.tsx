@@ -11,11 +11,14 @@ import WorkspaceSwitcher, { WorkspaceSetupPage } from './components/WorkspaceSwi
 import WorkspaceTeamDashboard from './components/WorkspaceTeamDashboard';
 import {
   createWorkspace,
+  archiveWorkspace,
   deleteContent,
   fetchContents,
   listUserWorkspaces,
+  renameWorkspace,
   saveContent,
   saveContents,
+  restoreWorkspace,
   resetReviewComments,
   submitReviewDecision,
   subscribeToContents,
@@ -133,6 +136,7 @@ function App() {
         slug: 'your-space',
         role: demoRole === 'administrador' ? 'administrador' : demoRole,
         isOwner: demoRole === 'administrador',
+        archivedAt: null,
       };
       setWorkspaces([demoWorkspace]);
       setActiveWorkspace(demoWorkspace);
@@ -265,8 +269,9 @@ function App() {
         const urlSlug = new URLSearchParams(window.location.search).get('workspace');
         const savedSlug = window.sessionStorage.getItem('activeWorkspaceSlug');
         const selected = urlSlug
-          ? workspaceResult.find((workspace) => workspace.slug === urlSlug)
-          : workspaceResult.find((workspace) => workspace.slug === savedSlug) || workspaceResult[0];
+          ? workspaceResult.find((workspace) => workspace.slug === urlSlug && !workspace.archivedAt)
+          : workspaceResult.find((workspace) => workspace.slug === savedSlug && !workspace.archivedAt)
+            || workspaceResult.find((workspace) => !workspace.archivedAt);
         if (urlSlug && !selected) {
           throw new Error('Sua conta não tem acesso à empresa selecionada. Selecione uma empresa disponível ou peça um convite ao administrador.');
         }
@@ -531,6 +536,7 @@ function App() {
             slug: `${name.toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
             role: 'administrador',
             isOwner: true,
+            archivedAt: null,
           }
         : await createWorkspace(name);
       setWorkspaces((current) => [...current, workspace]);
@@ -564,6 +570,56 @@ function App() {
     setChannelFilter('');
     setQuery('');
     updateWorkspaceUrl(workspace.slug);
+  }
+
+  async function handleRenameWorkspace(workspaceId: string, name: string): Promise<void> {
+    if (!demoMode) await renameWorkspace(workspaceId, name);
+    setWorkspaces((current) => current.map((workspace) =>
+      workspace.id === workspaceId ? { ...workspace, name: name.trim() } : workspace,
+    ));
+    setActiveWorkspace((current) =>
+      current?.id === workspaceId ? { ...current, name: name.trim() } : current,
+    );
+  }
+
+  async function handleArchiveWorkspace(workspaceId: string): Promise<void> {
+    if (!demoMode) await archiveWorkspace(workspaceId);
+    const archivedAt = new Date().toISOString();
+    setWorkspaces((current) => current.map((workspace) =>
+      workspace.id === workspaceId ? { ...workspace, archivedAt } : workspace,
+    ));
+    if (activeWorkspace?.id === workspaceId) {
+      const nextWorkspace = workspaces.find((workspace) => workspace.id !== workspaceId && !workspace.archivedAt);
+      setActiveWorkspace(nextWorkspace || null);
+      setRole(nextWorkspace?.role || null);
+      setIsAdmin(Boolean(nextWorkspace?.role === 'administrador' || isSystemAdmin));
+      setContents([]);
+      setError('');
+      if (nextWorkspace) {
+        updateWorkspaceUrl(nextWorkspace.slug);
+      } else {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('workspace');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        window.sessionStorage.removeItem('activeWorkspaceSlug');
+      }
+    }
+  }
+
+  async function handleRestoreWorkspace(workspaceId: string): Promise<void> {
+    if (!demoMode) await restoreWorkspace(workspaceId);
+    const restored = workspaces.find((workspace) => workspace.id === workspaceId);
+    if (!restored) throw new Error('Não foi possível localizar a empresa arquivada.');
+    const activeRestored = { ...restored, archivedAt: null };
+    setWorkspaces((current) => current.map((workspace) =>
+      workspace.id === workspaceId ? activeRestored : workspace,
+    ));
+    setActiveWorkspace(activeRestored);
+    setRole(activeRestored.role);
+    setIsAdmin(activeRestored.role === 'administrador' || isSystemAdmin);
+    setContents([]);
+    setError('');
+    updateWorkspaceUrl(activeRestored.slug);
   }
 
   function navigateBackFromWorkspacePage(parameter: 'admin' | 'team'): void {
@@ -659,7 +715,9 @@ function App() {
       <WorkspaceSetupPage
         error={workspaceError}
         pending={creatingWorkspace}
+        archivedWorkspaces={workspaces.filter((workspace) => workspace.archivedAt)}
         onCreate={handleSetupCreateWorkspace}
+        onRestoreWorkspace={handleRestoreWorkspace}
         onLogout={() => void handleLogout()}
       />
     );
@@ -687,8 +745,13 @@ function App() {
         workspaceName={activeWorkspace?.name || 'Your Space'}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspace?.id || ''}
+        canManage={activeIsAdmin}
+        isSystemAdmin={demoMode ? demoRole === 'administrador' : isSystemAdmin}
         onChangeWorkspace={handleWorkspaceChange}
         onCreateWorkspace={handleCreateWorkspace}
+        onRenameWorkspace={handleRenameWorkspace}
+        onArchiveWorkspace={handleArchiveWorkspace}
+        onRestoreWorkspace={handleRestoreWorkspace}
         onBack={() => navigateBackFromWorkspacePage('team')}
         onExitDemo={exitDemoMode}
       />
@@ -726,9 +789,13 @@ function App() {
               workspaces={workspaces}
               activeWorkspaceId={activeWorkspace.id}
               canManage={activeIsAdmin}
+              isSystemAdmin={demoMode ? demoRole === 'administrador' : isSystemAdmin}
               onChange={handleWorkspaceChange}
               onCreateWorkspace={handleCreateWorkspace}
               onManageTeam={() => window.location.assign(getWorkspaceTeamUrl())}
+              onRenameWorkspace={handleRenameWorkspace}
+              onArchiveWorkspace={handleArchiveWorkspace}
+              onRestoreWorkspace={handleRestoreWorkspace}
             />
           )}
         </div>

@@ -36,9 +36,13 @@ create table if not exists public.workspaces (
   name text not null,
   slug text not null unique,
   owner_id uuid not null references auth.users(id) on delete cascade,
+  archived_at timestamptz,
   created_at timestamptz not null default now(),
   constraint workspaces_slug_format check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')
 );
+
+alter table public.workspaces
+  add column if not exists archived_at timestamptz;
 
 create table if not exists public.workspace_members (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -211,6 +215,11 @@ create policy posts_select_workspace_members
   to authenticated
   using (
     exists (
+      select 1 from public.workspaces
+      where workspaces.id = posts.workspace_id
+        and workspaces.archived_at is null
+    )
+    and (exists (
       select 1 from public.workspace_members as member
       where member.workspace_id = posts.workspace_id
         and member.user_id = (select auth.uid())
@@ -225,7 +234,7 @@ create policy posts_select_workspace_members
     or exists (
       select 1 from public.panel_admins
       where panel_admins.user_id = (select auth.uid())
-    )
+    ))
   );
 
 create policy posts_insert_workspace_programmers
@@ -234,6 +243,11 @@ create policy posts_insert_workspace_programmers
   to authenticated
   with check (
     exists (
+      select 1 from public.workspaces
+      where workspaces.id = posts.workspace_id
+        and workspaces.archived_at is null
+    )
+    and (exists (
       select 1 from public.workspace_members as member
       where member.workspace_id = posts.workspace_id
         and member.user_id = (select auth.uid())
@@ -242,7 +256,7 @@ create policy posts_insert_workspace_programmers
     or exists (
       select 1 from public.panel_admins
       where panel_admins.user_id = (select auth.uid())
-    )
+    ))
   );
 
 create policy posts_update_workspace_programmers
@@ -251,6 +265,11 @@ create policy posts_update_workspace_programmers
   to authenticated
   using (
     exists (
+      select 1 from public.workspaces
+      where workspaces.id = posts.workspace_id
+        and workspaces.archived_at is null
+    )
+    and (exists (
       select 1 from public.workspace_members as member
       where member.workspace_id = posts.workspace_id
         and member.user_id = (select auth.uid())
@@ -259,10 +278,15 @@ create policy posts_update_workspace_programmers
     or exists (
       select 1 from public.panel_admins
       where panel_admins.user_id = (select auth.uid())
-    )
+    ))
   )
   with check (
     exists (
+      select 1 from public.workspaces
+      where workspaces.id = posts.workspace_id
+        and workspaces.archived_at is null
+    )
+    and (exists (
       select 1 from public.workspace_members as member
       where member.workspace_id = posts.workspace_id
         and member.user_id = (select auth.uid())
@@ -271,7 +295,7 @@ create policy posts_update_workspace_programmers
     or exists (
       select 1 from public.panel_admins
       where panel_admins.user_id = (select auth.uid())
-    )
+    ))
   );
 
 create policy posts_delete_workspace_programmers
@@ -280,6 +304,11 @@ create policy posts_delete_workspace_programmers
   to authenticated
   using (
     exists (
+      select 1 from public.workspaces
+      where workspaces.id = posts.workspace_id
+        and workspaces.archived_at is null
+    )
+    and (exists (
       select 1 from public.workspace_members as member
       where member.workspace_id = posts.workspace_id
         and member.user_id = (select auth.uid())
@@ -288,7 +317,7 @@ create policy posts_delete_workspace_programmers
     or exists (
       select 1 from public.panel_admins
       where panel_admins.user_id = (select auth.uid())
-    )
+    ))
   );
 
 drop policy if exists panel_editors_read_self on public.panel_editors;
@@ -328,6 +357,11 @@ create policy workspaces_read_accessible
       select 1 from public.workspace_members
       where workspace_members.workspace_id = workspaces.id
         and workspace_members.user_id = (select auth.uid())
+        and (
+          workspaces.archived_at is null
+          or workspace_members.role = 'administrador'
+          or workspaces.owner_id = (select auth.uid())
+        )
     )
     or exists (
       select 1 from public.panel_admins
@@ -401,7 +435,8 @@ returns table (
   workspace_name text,
   workspace_slug text,
   role text,
-  is_owner boolean
+  is_owner boolean,
+  archived_at timestamptz
 )
 language sql
 security definer
@@ -412,17 +447,123 @@ as $$
     workspaces.name,
     workspaces.slug,
     coalesce(members.role, 'administrador')::text,
-    (workspaces.owner_id = (select auth.uid()))
+    (workspaces.owner_id = (select auth.uid())),
+    workspaces.archived_at
   from public.workspaces
   left join public.workspace_members as members
     on members.workspace_id = workspaces.id
     and members.user_id = (select auth.uid())
-  where members.user_id is not null
+  where (
+      (workspaces.archived_at is null and members.user_id is not null)
+      or (
+        workspaces.archived_at is not null
+        and (
+          workspaces.owner_id = (select auth.uid())
+          or members.role = 'administrador'
+        )
+      )
+    )
     or exists (
       select 1 from public.panel_admins
       where panel_admins.user_id = (select auth.uid())
     )
   order by lower(workspaces.name);
+$$;
+
+create or replace function public.rename_workspace(p_workspace_id uuid, p_name text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  normalized_name text := pg_catalog.btrim(p_name);
+begin
+  if normalized_name is null
+    or pg_catalog.length(normalized_name) < 2
+    or pg_catalog.length(normalized_name) > 80 then
+    raise exception 'O nome da empresa deve ter entre 2 e 80 caracteres.';
+  end if;
+
+  if not exists (
+    select 1 from public.workspace_members as members
+    where members.workspace_id = p_workspace_id
+      and members.user_id = (select auth.uid())
+      and members.role = 'administrador'
+  ) and not exists (
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem renomear esta empresa.';
+  end if;
+
+  update public.workspaces
+  set name = normalized_name
+  where id = p_workspace_id
+    and archived_at is null;
+  if not found then
+    raise exception 'Empresa não encontrada ou arquivada.';
+  end if;
+end;
+$$;
+
+create or replace function public.archive_workspace(p_workspace_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.workspace_members as members
+    where members.workspace_id = p_workspace_id
+      and members.user_id = (select auth.uid())
+      and members.role = 'administrador'
+  ) and not exists (
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem arquivar esta empresa.';
+  end if;
+
+  update public.workspaces
+  set archived_at = pg_catalog.clock_timestamp()
+  where id = p_workspace_id
+    and slug <> 'your-space'
+    and archived_at is null;
+  if not found then
+    raise exception 'Esta empresa não pode ser arquivada.';
+  end if;
+end;
+$$;
+
+create or replace function public.restore_workspace(p_workspace_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.workspace_members as members
+    where members.workspace_id = p_workspace_id
+      and members.user_id = (select auth.uid())
+      and members.role = 'administrador'
+  ) and not exists (
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem restaurar esta empresa.';
+  end if;
+
+  update public.workspaces
+  set archived_at = null
+  where id = p_workspace_id
+    and archived_at is not null;
+  if not found then
+    raise exception 'Empresa arquivada não encontrada.';
+  end if;
+end;
 $$;
 
 drop function if exists public.verify_workspace_access(text);
@@ -457,6 +598,7 @@ begin
   left join public.panel_admins as admins
     on admins.user_id = (select auth.uid())
   where workspaces.slug = p_workspace_slug
+    and workspaces.archived_at is null
     and (members.user_id is not null or admins.user_id is not null);
 
   if not found then
@@ -474,13 +616,13 @@ set search_path = ''
 as $$
 begin
   if not exists (
-    select 1 from public.workspace_members
-    where workspace_id = p_workspace_id
-      and user_id = (select auth.uid())
-      and role = 'administrador'
+    select 1 from public.workspace_members as caller_members
+    where caller_members.workspace_id = p_workspace_id
+      and caller_members.user_id = (select auth.uid())
+      and caller_members.role = 'administrador'
   ) and not exists (
-    select 1 from public.panel_admins
-    where user_id = (select auth.uid())
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
   ) then
     raise exception 'Somente administradores desta empresa podem listar a equipe.';
   end if;
@@ -513,19 +655,23 @@ declare
   target_user_id uuid;
 begin
   if not exists (
-    select 1 from public.workspace_members
-    where workspace_id = p_workspace_id
-      and user_id = (select auth.uid())
-      and role = 'administrador'
+    select 1 from public.workspace_members as caller_members
+    where caller_members.workspace_id = p_workspace_id
+      and caller_members.user_id = (select auth.uid())
+      and caller_members.role = 'administrador'
   ) and not exists (
-    select 1 from public.panel_admins
-    where user_id = (select auth.uid())
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
   ) then
     raise exception 'Somente administradores desta empresa podem adicionar pessoas.';
   end if;
 
-  if not exists (select 1 from public.workspaces where id = p_workspace_id) then
-    raise exception 'Empresa não encontrada.';
+  if not exists (
+    select 1 from public.workspaces as target_workspace
+    where target_workspace.id = p_workspace_id
+      and target_workspace.archived_at is null
+  ) then
+    raise exception 'Empresa não encontrada ou arquivada.';
   end if;
   if p_role is null or p_role not in ('administrador', 'programador', 'revisor') then
     raise exception 'Perfil inválido.';
@@ -565,13 +711,21 @@ set search_path = ''
 as $$
 begin
   if not exists (
-    select 1 from public.workspace_members
-    where workspace_id = p_workspace_id
-      and user_id = (select auth.uid())
-      and role = 'administrador'
+    select 1 from public.workspaces as target_workspace
+    where target_workspace.id = p_workspace_id
+      and target_workspace.archived_at is null
+  ) then
+    raise exception 'Empresa não encontrada ou arquivada.';
+  end if;
+
+  if not exists (
+    select 1 from public.workspace_members as caller_members
+    where caller_members.workspace_id = p_workspace_id
+      and caller_members.user_id = (select auth.uid())
+      and caller_members.role = 'administrador'
   ) and not exists (
-    select 1 from public.panel_admins
-    where user_id = (select auth.uid())
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
   ) then
     raise exception 'Somente administradores desta empresa podem alterar os perfis.';
   end if;
@@ -716,6 +870,14 @@ declare
     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
   );
 begin
+  if not exists (
+    select 1 from public.workspaces as target_workspace
+    where target_workspace.id = p_workspace_id
+      and target_workspace.archived_at is null
+  ) then
+    raise exception 'Empresa não encontrada ou arquivada.';
+  end if;
+
   if (select auth.uid()) is null or (
     not exists (
       select 1 from public.workspace_members
@@ -797,6 +959,14 @@ declare
     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
   );
 begin
+  if not exists (
+    select 1 from public.workspaces as target_workspace
+    where target_workspace.id = p_workspace_id
+      and target_workspace.archived_at is null
+  ) then
+    raise exception 'Empresa não encontrada ou arquivada.';
+  end if;
+
   if (select auth.uid()) is null or (
     not exists (
       select 1 from public.workspace_members
@@ -829,6 +999,9 @@ $$;
 
 revoke all on function public.create_workspace(text) from public;
 revoke all on function public.list_user_workspaces() from public;
+revoke all on function public.rename_workspace(uuid, text) from public;
+revoke all on function public.archive_workspace(uuid) from public;
+revoke all on function public.restore_workspace(uuid) from public;
 revoke all on function public.verify_workspace_access(text) from public;
 revoke all on function public.list_workspace_members(uuid) from public;
 revoke all on function public.add_workspace_member(uuid, text, text) from public;
@@ -840,6 +1013,9 @@ revoke all on function public.reset_review_comments(uuid, text) from public;
 
 grant execute on function public.create_workspace(text) to authenticated;
 grant execute on function public.list_user_workspaces() to authenticated;
+grant execute on function public.rename_workspace(uuid, text) to authenticated;
+grant execute on function public.archive_workspace(uuid) to authenticated;
+grant execute on function public.restore_workspace(uuid) to authenticated;
 grant execute on function public.verify_workspace_access(text) to authenticated;
 grant execute on function public.list_workspace_members(uuid) to authenticated;
 grant execute on function public.add_workspace_member(uuid, text, text) to authenticated;

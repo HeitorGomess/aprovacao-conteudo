@@ -26,6 +26,7 @@ export interface WorkspaceSummary {
   slug: string;
   role: WorkspaceRole;
   isOwner: boolean;
+  archivedAt: string | null;
 }
 
 export interface WorkspaceMember {
@@ -65,12 +66,14 @@ export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
     workspace_slug: string;
     role: WorkspaceRole;
     is_owner: boolean;
+    archived_at: string | null;
   }) => ({
     id: item.workspace_id,
     name: item.workspace_name,
     slug: item.workspace_slug,
     role: item.role,
     isOwner: item.is_owner,
+    archivedAt: item.archived_at,
   }));
 }
 
@@ -87,7 +90,30 @@ export async function createWorkspace(name: string): Promise<WorkspaceSummary> {
     slug: workspace.workspace_slug,
     role: 'administrador',
     isOwner: true,
+    archivedAt: null,
   };
+}
+
+export async function renameWorkspace(workspaceId: string, name: string): Promise<void> {
+  const { error } = await supabase.rpc('rename_workspace', {
+    p_workspace_id: workspaceId,
+    p_name: name.trim(),
+  });
+  if (error) throw error;
+}
+
+export async function archiveWorkspace(workspaceId: string): Promise<void> {
+  const { error } = await supabase.rpc('archive_workspace', {
+    p_workspace_id: workspaceId,
+  });
+  if (error) throw error;
+}
+
+export async function restoreWorkspace(workspaceId: string): Promise<void> {
+  const { error } = await supabase.rpc('restore_workspace', {
+    p_workspace_id: workspaceId,
+  });
+  if (error) throw error;
 }
 
 export async function verifyWorkspaceAccess(workspaceSlug: string): Promise<EditorAccess> {
