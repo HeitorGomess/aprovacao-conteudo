@@ -7,11 +7,13 @@ import {
   deleteContent,
   fetchContents,
   saveContent,
+  saveContents,
   subscribeToContents,
   supabase,
   verifyEditor,
 } from './features/content-approval/contentService';
 import { createMockContents } from './features/content-approval/mockData';
+import { importContentCsv } from './features/content-approval/csvImport';
 import type { Content, ContentFormData, ContentStatus } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
@@ -26,7 +28,13 @@ const statusLabels: Record<ContentStatus, string> = {
 const statuses = Object.keys(statusLabels) as ContentStatus[];
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Ocorreu um erro inesperado.';
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    const details = 'details' in error && typeof error.details === 'string' ? error.details : '';
+    const hint = 'hint' in error && typeof error.hint === 'string' ? error.hint : '';
+    return [error.message, details, hint].filter(Boolean).join(' ');
+  }
+  return 'Ocorreu um erro inesperado.';
 }
 
 function localMonthKey(date: Date): string {
@@ -56,6 +64,7 @@ function App() {
   const [query, setQuery] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Content | null>(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     if (demoMode) {
@@ -232,6 +241,27 @@ function App() {
     }
   }
 
+  async function handleImportCsv(file?: File) {
+    if (!file) return;
+    setImporting(true);
+    setError('');
+    try {
+      const imported = importContentCsv(await file.text());
+      if (!demoMode) {
+        await saveContents(imported);
+      }
+      setContents((current) => [...current, ...imported]);
+      const earliestDate = imported.map((content) => content.date).sort()[0];
+      const [year, selectedMonth] = earliestDate.split('-').map(Number);
+      setMonth(new Date(year, selectedMonth - 1, 1));
+      setError('');
+    } catch (reason) {
+      setError(`Não foi possível importar a planilha: ${getErrorMessage(reason)}`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
   function shiftMonth(amount: number) {
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
   }
@@ -298,7 +328,22 @@ function App() {
             <button aria-pressed={view === 'calendar'} onClick={() => setView('calendar')} type="button">Calendário</button>
             <button aria-pressed={view === 'table'} onClick={() => setView('table')} type="button">Tabela</button>
           </div>
-          <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
+          <div className="toolbar-actions">
+            <label className="button import-button">
+              {importing ? 'Importando…' : 'Importar CSV'}
+              <input
+                accept=".csv,text/csv"
+                aria-label="Importar arquivo CSV"
+                disabled={importing}
+                onChange={(event) => {
+                  void handleImportCsv(event.target.files?.[0]);
+                  event.target.value = '';
+                }}
+                type="file"
+              />
+            </label>
+            <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
+          </div>
         </div>
       </section>
 

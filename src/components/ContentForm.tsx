@@ -8,7 +8,7 @@ interface ContentFormProps {
   onSubmit: (data: ContentFormData) => Promise<void>;
 }
 
-const channels = ['Instagram', 'TikTok', 'LinkedIn', 'YouTube', 'Facebook', 'Blog', 'E-mail', 'Outro'];
+const channels = ['Instagram', 'TikTok', 'LinkedIn', 'YouTube', 'Facebook', 'Blog', 'E-mail', 'Multicanal', 'Outro'];
 const formats = ['Feed', 'Carrossel', 'Reels', 'Stories', 'Vídeo', 'Artigo', 'Newsletter', 'Anúncio'];
 const statuses: Array<{ value: ContentStatus; label: string }> = [
   { value: 'rascunho', label: 'Rascunho' },

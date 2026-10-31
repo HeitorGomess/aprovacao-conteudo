@@ -38,6 +38,12 @@ export async function saveContent(content: Content): Promise<void> {
   if (error) throw error;
 }
 
+export async function saveContents(contents: Content[]): Promise<void> {
+  const rows = contents.map(({ id, ...data }) => ({ id, data }));
+  const { error } = await supabase.from('posts').upsert(rows);
+  if (error) throw error;
+}
+
 export async function deleteContent(id: string): Promise<void> {
   const { error } = await supabase.from('posts').delete().eq('id', id);
   if (error) throw error;

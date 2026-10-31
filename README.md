@@ -32,6 +32,12 @@ npm install
 npm start
 ```
 
+## Importar planilha
+
+Exporte a aba do Google Sheets como CSV. No painel, clique em **Importar CSV** e escolha o arquivo. São aceitos CSVs com colunas de título/data e o modelo de planejamento com linhas `Tema`, `Data` e `Dia`. No modelo de campanha, o ano é inferido pelos dias da semana; confirme as datas na visualização antes de usar os registros.
+
+No modo de demonstração (`?demo=1`), a importação existe apenas na sessão do navegador. Na versão normal, os registros são gravados no Supabase e exigem uma conta autorizada.
+
 ## Deploy
 
 O workflow [deploy.yml](./.github/workflows/deploy.yml) compila a aplicação React e publica `dist` no GitHub Pages a cada push para `main`. Em **Settings → Pages**, selecione **GitHub Actions** como origem do deploy.

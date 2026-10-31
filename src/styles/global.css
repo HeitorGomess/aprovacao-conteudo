@@ -50,6 +50,8 @@ a:hover { text-decoration: underline; }
   border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
 }
 .button { min-height: 38px; padding: 8px 13px; font-weight: 600; }
+.import-button { display: inline-flex; align-items: center; justify-content: center; }
+.import-button input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
 .button:hover, .icon-button:hover { background: var(--surface-soft); }
 .button-primary { border-color: var(--accent); color: #fff; background: var(--accent); }
 .button-primary:hover { background: #2138c0; }
