@@ -6,6 +6,7 @@ interface LoginFormProps {
   error: string;
   notice?: string;
   recovery?: boolean;
+  initialMode?: 'login' | 'signup';
   onSubmit: (email: string, password: string) => Promise<void>;
   onSignUp: (email: string, password: string) => Promise<string>;
   onRequestPasswordReset: (email: string) => Promise<string>;
@@ -24,12 +25,13 @@ export default function LoginForm({
   error,
   notice = '',
   recovery = false,
+  initialMode = 'login',
   onSubmit,
   onSignUp,
   onRequestPasswordReset,
   onUpdatePassword,
 }: LoginFormProps) {
-  const [mode, setMode] = useState<AuthMode>(recovery ? 'update-password' : 'login');
+  const [mode, setMode] = useState<AuthMode>(recovery ? 'update-password' : initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -91,7 +93,7 @@ export default function LoginForm({
   const description = mode === 'login'
     ? 'Entre para planejar, compartilhar e acompanhar cada conteúdo da sua equipe.'
     : mode === 'signup'
-      ? 'Cadastre seu e-mail para solicitar acesso ao workspace.'
+      ? 'Crie sua conta e configure o painel privado da sua empresa.'
       : mode === 'forgot-password'
         ? 'Enviaremos um link seguro para o e-mail cadastrado.'
         : 'Escolha uma senha segura para continuar usando sua conta.';
@@ -100,7 +102,7 @@ export default function LoginForm({
     <main className="auth-page">
       <section className="auth-layout" aria-label="Acesso ao workspace de marketing">
         <div className="auth-story">
-          <a className="auth-brand" href={window.location.pathname} aria-label="Página inicial do workspace">
+          <a className="auth-brand" href="/aprovacao-conteudo/" aria-label="Página inicial do Your Space">
             <span className="brand-mark" aria-hidden="true">YS</span>
             <span>Your Space</span>
           </a>
@@ -209,7 +211,7 @@ export default function LoginForm({
               )}
             </div>
             {mode === 'signup' && (
-              <p className="auth-footnote">Após confirmar seu e-mail, o administrador precisa liberar seu perfil de acesso.</p>
+              <p className="auth-footnote">Após confirmar seu e-mail, entre para criar o painel da sua empresa.</p>
             )}
           </div>
           <p className="auth-panel-footnote">Acesso protegido para sua equipe de marketing.</p>

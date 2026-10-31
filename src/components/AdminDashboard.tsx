@@ -1,26 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  listPanelAccounts,
-  setPanelAccountRole,
-  type AccountRole,
+  addWorkspaceMember,
+  listWorkspaceMembers,
+  setWorkspaceMemberRole,
+  type WorkspaceRole,
   type EditorRole,
-  type PanelAccount,
+  type WorkspaceMember,
 } from '../features/content-approval/contentService';
 
 interface AdminDashboardProps {
   demoMode: boolean;
+  workspaceId: string;
+  workspaceName: string;
+  workspaceSlug: string;
   onBack: () => void;
   onExitDemo: () => void;
 }
 
-const demoAccounts: PanelAccount[] = [
-  { userId: 'demo-owner', email: 'admin@exemplo.com', role: 'administrador', isAdmin: true },
-  { userId: 'demo-programmer', email: 'programador@exemplo.com', role: 'programador', isAdmin: false },
-  { userId: 'demo-reviewer', email: 'revisor@exemplo.com', role: 'revisor', isAdmin: false },
-  { userId: 'demo-no-access', email: 'convidado@exemplo.com', role: 'sem_acesso', isAdmin: false },
+const demoAccounts: WorkspaceMember[] = [
+  { userId: 'demo-owner', email: 'admin@exemplo.com', role: 'administrador', isOwner: true },
+  { userId: 'demo-programmer', email: 'programador@exemplo.com', role: 'programador', isOwner: false },
+  { userId: 'demo-reviewer', email: 'revisor@exemplo.com', role: 'revisor', isOwner: false },
 ];
 
-const roleLabels: Record<AccountRole, string> = {
+const roleLabels: Record<WorkspaceRole | 'sem_acesso', string> = {
   administrador: 'Administrador',
   programador: 'Programador',
   revisor: 'Revisor',
@@ -45,27 +48,36 @@ function getErrorMessage(reason: unknown): string {
   return 'Ocorreu um erro inesperado.';
 }
 
-export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDashboardProps) {
-  const [accounts, setAccounts] = useState<PanelAccount[]>([]);
+export default function AdminDashboard({
+  demoMode,
+  workspaceId,
+  workspaceName,
+  workspaceSlug,
+  onBack,
+  onExitDemo,
+}: AdminDashboardProps) {
+  const [accounts, setAccounts] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [accountSearch, setAccountSearch] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState<EditorRole | 'administrador'>('programador');
 
   const refreshAccounts = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     setRefreshing(true);
     setError('');
     try {
-      setAccounts(demoMode ? demoAccounts : await listPanelAccounts());
+      setAccounts(demoMode ? demoAccounts : await listWorkspaceMembers(workspaceId));
     } catch (reason) {
       setError(`Não foi possível atualizar as contas: ${getErrorMessage(reason)}`);
     } finally {
       setRefreshing(false);
       setLoading(false);
     }
-  }, [demoMode]);
+  }, [demoMode, workspaceId]);
 
   useEffect(() => {
     void refreshAccounts(true);
@@ -91,17 +103,44 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
     return accounts.filter((account) => account.email.toLocaleLowerCase('pt-BR').includes(normalizedSearch));
   }, [accounts, accountSearch]);
 
-  async function changeRole(userId: string, role: EditorRole | 'sem_acesso') {
+  async function addMember(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRefreshing(true);
+    setError('');
+    try {
+      if (demoMode) {
+        setAccounts((current) => [
+          ...current.filter((account) => account.email.toLowerCase() !== newMemberEmail.trim().toLowerCase()),
+          {
+            userId: `demo-${Date.now()}`,
+            email: newMemberEmail.trim().toLowerCase(),
+            role: newMemberRole,
+            isOwner: false,
+          },
+        ]);
+      } else {
+        await addWorkspaceMember(workspaceId, newMemberEmail, newMemberRole);
+        setAccounts(await listWorkspaceMembers(workspaceId));
+      }
+      setNewMemberEmail('');
+    } catch (reason) {
+      setError(`Não foi possível adicionar a conta: ${getErrorMessage(reason)}`);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function changeRole(userId: string, role: WorkspaceRole | 'sem_acesso') {
     setSavingUserId(userId);
     setError('');
     try {
       if (demoMode) {
-        setAccounts((current) => current.map((account) =>
-          account.userId === userId ? { ...account, role } : account,
-        ));
+        setAccounts((current) => role === 'sem_acesso'
+          ? current.filter((account) => account.userId !== userId)
+          : current.map((account) => account.userId === userId ? { ...account, role } : account));
       } else {
-        await setPanelAccountRole(userId, role);
-        setAccounts(await listPanelAccounts());
+        await setWorkspaceMemberRole(workspaceId, userId, role);
+        setAccounts(await listWorkspaceMembers(workspaceId));
       }
     } catch (reason) {
       setError(`Não foi possível atualizar o perfil: ${getErrorMessage(reason)}`);
@@ -117,7 +156,7 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
           <div className="brand-mark" aria-hidden="true">YS</div>
           <div>
             <p className="eyebrow">YOUR SPACE · MARKETING</p>
-            <h1>Gerenciar acessos</h1>
+            <h1>Gerenciar equipe</h1>
           </div>
         </div>
         <button className="button" onClick={onBack} type="button">Voltar ao painel</button>
@@ -134,9 +173,9 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
 
       <section className="admin-intro admin-intro-row">
         <div>
-          <p className="eyebrow">ADMINISTRAÇÃO</p>
-          <h2>Contas e permissões</h2>
-          <p>Escolha o que cada conta pode fazer. As alterações são aplicadas imediatamente.</p>
+          <p className="eyebrow">ADMINISTRAÇÃO · {workspaceName}</p>
+          <h2>Equipe e permissões</h2>
+          <p>Adicione contas cadastradas e escolha o que cada pessoa pode fazer neste painel.</p>
         </div>
         {!demoMode && (
           <button
@@ -151,19 +190,43 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
       </section>
 
       <section className="permission-legend" aria-label="Descrição dos perfis">
+        <article><strong>Administrador</strong><span>Gerencia a equipe, os cargos e todos os conteúdos desta empresa.</span></article>
         <article><strong>Programador</strong><span>Cria, importa, edita e exclui publicações.</span></article>
         <article><strong>Revisor</strong><span>Analisa as publicações em revisão e registra seu parecer. Não pode editar nem anexar arquivos.</span></article>
-        <article><strong>Sem acesso</strong><span>Não pode entrar no painel nem visualizar publicações.</span></article>
       </section>
 
       {error && <div className="notice" role="alert">{error}</div>}
+
+      <form className="member-add-form" onSubmit={(event) => void addMember(event)}>
+        <label>
+          E-mail de uma conta já cadastrada
+          <input
+            autoComplete="email"
+            required
+            type="email"
+            value={newMemberEmail}
+            onChange={(event) => setNewMemberEmail(event.target.value)}
+          />
+        </label>
+        <label>
+          Cargo inicial
+          <select value={newMemberRole} onChange={(event) => setNewMemberRole(event.target.value as EditorRole | 'administrador')}>
+            <option value="programador">Programador</option>
+            <option value="revisor">Revisor</option>
+            <option value="administrador">Administrador</option>
+          </select>
+        </label>
+        <button className="button button-primary" disabled={refreshing} type="submit">
+          {refreshing ? 'Adicionando…' : 'Adicionar à equipe'}
+        </button>
+      </form>
 
       {loading ? (
         <div className="empty-state"><p>Carregando contas…</p></div>
       ) : accounts.length === 0 ? (
         <div className="empty-state">
-          <h2>Nenhuma conta encontrada</h2>
-          <p>Não há contas registradas para listar. Novos cadastros aparecem automaticamente depois de serem criados; esta tela atualiza a lista ao voltar para a aba.</p>
+          <h2>Ninguém na equipe ainda</h2>
+          <p>Digite o e-mail de uma conta Your Space já cadastrada acima para adicioná-la a este painel.</p>
           <button
             className="button"
             disabled={refreshing}
@@ -175,6 +238,12 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
         </div>
       ) : (
         <>
+          <div className="workspace-share-link">
+            Link deste painel:
+            <a href={`/aprovacao-conteudo/empresa/${workspaceSlug}`}>
+              {window.location.origin}/aprovacao-conteudo/empresa/{workspaceSlug}
+            </a>
+          </div>
           <div className="account-tools">
             <label>
               <span className="sr-only">Buscar conta por e-mail</span>
@@ -208,8 +277,8 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
                     <span>{account.email}</span>
                   </div>
                   <div className="account-role">
-                    {account.isAdmin ? (
-                      <span className="role-badge role-administrator">{roleLabels.administrador}</span>
+                    {account.isOwner ? (
+                      <span className="role-badge role-administrator">Proprietário · {roleLabels.administrador}</span>
                     ) : (
                       <select
                         aria-label={`Perfil de ${account.email}`}
@@ -217,10 +286,11 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
                         value={account.role}
                         onChange={(event) => void changeRole(
                           account.userId,
-                          event.target.value as EditorRole | 'sem_acesso',
+                          event.target.value as WorkspaceRole | 'sem_acesso',
                         )}
                       >
                         <option value="sem_acesso">{roleLabels.sem_acesso}</option>
+                        <option value="administrador">{roleLabels.administrador}</option>
                         <option value="programador">{roleLabels.programador}</option>
                         <option value="revisor">{roleLabels.revisor}</option>
                       </select>

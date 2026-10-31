@@ -1,25 +1,29 @@
-# Aprovação de Conteúdo
+# YS · Your Space
 
-Aplicação React + TypeScript para planejar conteúdos, acompanhar revisões e aprovações. O Supabase mantém os dados sincronizados entre os editores.
+Aplicação React + TypeScript para planejar conteúdos, acompanhar revisões e aprovações em espaços privados por empresa.
 
 ## Requisitos
 
 - Node.js 20+
 - Um projeto Supabase
 
-## Supabase
+## Configuração do Supabase
 
-1. Execute [`SUPABASE_SETUP.sql`](./SUPABASE_SETUP.sql) no SQL Editor do projeto.
+1. Execute o arquivo completo [`SUPABASE_SETUP.sql`](./SUPABASE_SETUP.sql) no SQL Editor do projeto conectado ao app. Ele configura as tabelas, o isolamento por empresa e os cargos; em instalações existentes, migra os conteúdos e acessos legados para o espaço `your-space`.
 2. Em **Authentication → Providers → Email**, habilite o cadastro por e-mail e mantenha a confirmação de e-mail ativa.
-3. Crie uma conta para `gomesheitorvp@gmail.com` pela página inicial e confirme o endereço. O SQL configura essa conta como administradora geral e programadora, automaticamente. Se ela já existir e estiver confirmada, a configuração também é aplicada ao executar o SQL.
-4. Em **Authentication → URL Configuration**, configure a URL publicada (incluindo o caminho do GitHub Pages, se houver) como Site URL e Redirect URL. Adicione também a URL de confirmação usada pelo cadastro, com `?auth=confirmed` ao final; por exemplo, `https://seu-site.com/?auth=confirmed` ou `https://seu-usuario.github.io/marketing-content-dashboard/?auth=confirmed`. Para desenvolvimento, adicione também `http://localhost:5173/aprovacao-conteudo/?auth=confirmed`.
-5. Os usuários podem criar a própria conta na tela de login, mas começam sem acesso ao painel. O administrador abre **Gerenciar acessos** e escolhe **Programador**, **Revisor** ou **Sem acesso** para cada conta criada. A lista é atualizada ao voltar para a aba e periodicamente; as alterações são salvas imediatamente. Administradores não podem ser rebaixados por essa tela.
+3. Em **Authentication → URL Configuration**, configure como Site URL `https://heitorgomess.github.io/aprovacao-conteudo/` e adicione essa URL e `https://heitorgomess.github.io/aprovacao-conteudo/?auth=confirmed` às Redirect URLs. Adicione também `http://localhost:5173/aprovacao-conteudo/` e `http://localhost:5173/aprovacao-conteudo/?auth=confirmed` para desenvolvimento.
+4. A conta confirmada `gomesheitorvp@gmail.com` é reconhecida como administradora geral. O SQL também a adiciona como administradora do espaço `Your Space`.
 
-Se a gestão mostrar `structure of query does not match function result type`, execute novamente no SQL Editor a definição atualizada da função `public.list_panel_accounts()` neste arquivo. Os casts explícitos mantêm os tipos de retorno consistentes em projetos onde `auth.users.email` ou `panel_editors.role` têm tipos diferentes.
+## Como funciona
 
-Ao confirmar o e-mail, a pessoa volta para a tela de login e entra com a senha cadastrada. O perfil escolhido pelo administrador continua salvo no Supabase e é aplicado quando ela entrar; confirme que a função `list_panel_accounts` e as tabelas estão configuradas executando o SQL acima. O link **Esqueci minha senha** envia uma mensagem de recuperação para o e-mail informado. Configure a URL local e publicada como Redirect URL do Supabase para que o link retorne ao app.
+- A home apresenta o produto e permite entrar ou criar uma conta.
+- Depois de confirmar o e-mail e entrar, uma nova conta pode criar um painel para sua empresa e escolher um endereço único, como `/aprovacao-conteudo/empresa/minha-empresa`.
+- A pessoa que cria o painel torna-se sua administradora e pode adicionar membros já cadastrados pelo e-mail na opção **Gerenciar equipe**.
+- Cada painel tem membros, cargos e conteúdos próprios. Os cargos são **Administrador**, **Programador**, **Revisor** e **Sem acesso**. O acesso e as alterações são validados no Supabase; o link do painel, sozinho, não concede permissão.
+- Os conteúdos antigos e os cargos legados são migrados para o espaço `Your Space` ao executar o SQL. As políticas antigas de leitura e gravação global são removidas no final do script.
+- O link de recuperação de senha envia um e-mail para a conta informada. Configure as URLs de redirecionamento acima para retornar ao app.
 
-O cliente usa uma chave **publishable** no navegador. Ela é pública por definição; nunca coloque chaves `secret` ou `service_role` no código. A tabela tem RLS habilitado: programadores editam, revisores leem os conteúdos e enviam pareceres pela função controlada do banco, e administradores gerenciam os perfis por funções restritas.
+O navegador usa somente a chave **publishable** do Supabase. Ela é pública por definição; nunca coloque chaves `secret` ou `service_role` no código. As tabelas usam RLS e as funções de gestão validam a associação e o cargo no workspace.
 
 ## Desenvolvimento local
 
@@ -32,8 +36,8 @@ npm start
 
 Exporte a aba do Google Sheets como CSV. No painel, clique em **Importar CSV** e escolha o arquivo. São aceitos CSVs com colunas de título/data e o modelo de planejamento com linhas `Tema`, `Data` e `Dia`. No modelo de campanha, o ano é inferido pelos dias da semana; confirme as datas na visualização antes de usar os registros.
 
-No modo de demonstração (`?demo=1`), as alterações existem apenas na sessão do navegador. Use `?demo=1&role=revisor` para visualizar a tela de revisão e `?demo=1&role=admin&admin=1` para experimentar a administração de acessos. Na versão normal, os registros são gravados no Supabase e exigem uma conta com perfil autorizado.
+No modo de demonstração (`?demo=1`), as alterações existem apenas na sessão do navegador. Use `?demo=1&role=revisor` para visualizar a tela de revisão e `?demo=1&role=admin&admin=1` para experimentar a gestão de equipe.
 
 ## Deploy
 
-O workflow [deploy.yml](./.github/workflows/deploy.yml) compila a aplicação React e publica `dist` no GitHub Pages a cada push para `main`. Em **Settings → Pages**, selecione **GitHub Actions** como origem do deploy.
+O workflow [deploy.yml](./.github/workflows/deploy.yml) compila a aplicação React e publica `dist` no GitHub Pages a cada push para `main`. O arquivo `public/404.html` restaura rotas de painéis como `/empresa/minha-empresa` no Pages. Em **Settings → Pages**, selecione **GitHub Actions** como origem do deploy.

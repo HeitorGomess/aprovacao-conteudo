@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Carregando Your Space…</title>
+    <script>
+      const base = '/aprovacao-conteudo/';
+      const requestedPath = window.location.pathname + window.location.search + window.location.hash;
+      if (requestedPath.startsWith(base)) {
+        sessionStorage.setItem('ys-pending-path', requestedPath);
+      }
+      window.location.replace(base);
+    </script>
+  </head>
+  <body>
+    <p>Carregando seu painel…</p>
+  </body>
+</html>

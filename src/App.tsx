@@ -7,21 +7,59 @@ import LoginForm from './components/LoginForm';
 import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
 import {
+  LandingPage,
+  WorkspacePickerPage,
+  WorkspaceSetupPage,
+} from './components/WorkspacePages';
+import {
+  createWorkspace,
   deleteContent,
   fetchContents,
+  listUserWorkspaces,
   saveContent,
   saveContents,
   submitReviewDecision,
   subscribeToContents,
   supabase,
-  verifyEditor,
+  verifyWorkspaceAccess,
   type EditorRole,
+  type WorkspaceSummary,
+  type WorkspaceRole,
 } from './features/content-approval/contentService';
 import { createMockContents } from './features/content-approval/mockData';
 import { importContentCsv } from './features/content-approval/csvImport';
 import type { Content, ContentFormData, ContentStatus, ReviewComment } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
+const APP_BASE_PATH = '/aprovacao-conteudo/';
+
+function restoreGithubPagesPath() {
+  const pendingPath = sessionStorage.getItem('ys-pending-path');
+  if (pendingPath?.startsWith(APP_BASE_PATH)) {
+    sessionStorage.removeItem('ys-pending-path');
+    window.history.replaceState({}, '', pendingPath);
+  }
+}
+
+restoreGithubPagesPath();
+
+function getWorkspaceSlug(): string | null {
+  const routePrefix = `${APP_BASE_PATH}empresa/`;
+  if (!window.location.pathname.startsWith(routePrefix)) return null;
+  return window.location.pathname.slice(routePrefix.length).split('/')[0] || null;
+}
+
+function openWorkspace(slug: string, admin = false) {
+  const url = new URL(`${APP_BASE_PATH}empresa/${encodeURIComponent(slug)}`, window.location.origin);
+  if (admin) url.searchParams.set('admin', '1');
+  window.location.assign(url);
+}
+
+function openAuth(action: 'login' | 'signup') {
+  const url = new URL(APP_BASE_PATH, window.location.origin);
+  url.searchParams.set('auth', action);
+  window.location.assign(url);
+}
 
 const statusLabels: Record<ContentStatus, string> = {
   rascunho: 'Rascunho',
@@ -69,9 +107,18 @@ function App() {
       ? 'administrador'
       : 'programador';
   const adminView = new URLSearchParams(window.location.search).get('admin') === '1';
+  const authAction = new URLSearchParams(window.location.search).get('auth');
+  const workspaceSlug = getWorkspaceSlug();
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<EditorRole | null>(null);
+  const [role, setRole] = useState<WorkspaceRole | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isWorkspaceOwner, setIsWorkspaceOwner] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState('');
+  const [workspaceName, setWorkspaceName] = useState('');
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [accessUserId, setAccessUserId] = useState<string | null>(null);
   const [accessCheckError, setAccessCheckError] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
@@ -106,11 +153,16 @@ function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (active) {
         const confirmingSignup = event === 'SIGNED_IN' && signupConfirmationRedirect.current;
+        if (event === 'SIGNED_IN' && !confirmingSignup) setSignupConfirmationNotice(false);
         const nextUserId = nextSession?.user.id ?? null;
         if (authUserId.current !== nextUserId) {
           authUserId.current = nextUserId;
           setRole(null);
           setIsAdmin(false);
+          setIsWorkspaceOwner(false);
+          setWorkspaceId('');
+          setWorkspaceName('');
+          setWorkspaces([]);
           setAccessUserId(null);
           setAccessCheckError('');
           setLoading(Boolean(nextSession));
@@ -132,6 +184,10 @@ function App() {
         authUserId.current = nextUserId;
         setRole(null);
         setIsAdmin(false);
+        setIsWorkspaceOwner(false);
+        setWorkspaceId('');
+        setWorkspaceName('');
+        setWorkspaces([]);
         setAccessUserId(null);
         setAccessCheckError('');
         setLoading(Boolean(data.session));
@@ -187,51 +243,76 @@ function App() {
   useEffect(() => {
     if (demoMode) {
       setLoading(false);
+      setWorkspaceLoading(false);
       return;
     }
 
     if (!session) {
       setContents([]);
       setLoading(false);
+      setWorkspaceLoading(false);
+      setWorkspaceId('');
+      setWorkspaceName('');
+      setLoading(Boolean(workspaceSlug));
+      setRole(null);
+      setIsAdmin(false);
+      setIsWorkspaceOwner(false);
       return;
     }
     const userId = session.user.id;
 
     let active = true;
     let unsubscribe: (() => void) | undefined;
-    let accessVerified = false;
-    setLoading(true);
+    setWorkspaceLoading(true);
+    setWorkspaceError('');
+    setWorkspaceId('');
+    setWorkspaceName('');
+    setRole(null);
+    setIsAdmin(false);
+    setIsWorkspaceOwner(false);
     setError('');
     async function loadWorkspace() {
       try {
-        const access = await verifyEditor(userId);
-        if (!active) return;
-        accessVerified = true;
-        setRole(access.role);
-        setIsAdmin(access.isAdmin);
-        setAccessUserId(userId);
-        setAccessCheckError('');
-        if (!access.role && !access.isAdmin) {
-          setContents([]);
-          setError('Esta conta ainda não recebeu um perfil no painel. Peça ao administrador para autorizar seu acesso.');
+        if (!workspaceSlug) {
+          const memberships = await listUserWorkspaces();
+          if (!active) return;
+          setWorkspaces(memberships);
+          setAccessUserId(userId);
+          setAccessCheckError('');
+          if (memberships.length === 1) {
+            openWorkspace(memberships[0].slug);
+          }
           return;
         }
-        if (access.role) setContents(await fetchContents());
+
+        const access = await verifyWorkspaceAccess(workspaceSlug);
+        if (!active) return;
+        setRole(access.role);
+        setIsAdmin(access.isAdmin);
+        setIsWorkspaceOwner(access.isOwner);
+        setWorkspaceId(access.workspaceId);
+        setWorkspaceName(access.workspaceName);
+        setAccessUserId(userId);
+        setAccessCheckError('');
+        setContents(await fetchContents(access.workspaceId));
+        if (!active) return;
         unsubscribe = subscribeToContents(
+          access.workspaceId,
           setContents,
           (reason) => setError(`Problema na sincronização: ${getErrorMessage(reason)}`),
         );
       } catch (reason) {
         if (active) {
           const message = getErrorMessage(reason);
-          if (!accessVerified) {
-            setAccessCheckError(`Não foi possível verificar as permissões desta conta: ${message}`);
-            setAccessUserId(userId);
-          }
-          setError(`Não foi possível carregar os conteúdos: ${message}`);
+          setWorkspaceError(message);
+          setAccessCheckError(message);
+          setAccessUserId(userId);
         }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setWorkspaceLoading(false);
+          setLoading(false);
+        }
       }
     }
     void loadWorkspace();
@@ -240,7 +321,7 @@ function App() {
       active = false;
       unsubscribe?.();
     };
-  }, [demoMode, session?.user.id]);
+  }, [demoMode, session?.user.id, workspaceSlug]);
 
   const monthContents = useMemo(
     () => contents.filter((content) => content.date.startsWith(localMonthKey(month))),
@@ -265,7 +346,7 @@ function App() {
   }
 
   async function handleSignUp(email: string, password: string): Promise<string> {
-    const confirmationUrl = new URL(window.location.pathname, window.location.origin);
+    const confirmationUrl = new URL(APP_BASE_PATH, window.location.origin);
     confirmationUrl.searchParams.set('auth', 'confirmed');
     const { error: signUpError } = await supabase.auth.signUp({
       email,
@@ -273,7 +354,20 @@ function App() {
       options: { emailRedirectTo: confirmationUrl.toString() },
     });
     if (signUpError) throw new Error(`Não foi possível criar a conta: ${signUpError.message}`);
-    return 'Conta criada. Confirme seu e-mail e aguarde o administrador liberar seu perfil de acesso.';
+    return 'Conta criada. Confirme seu e-mail e entre para criar o painel da sua empresa.';
+  }
+
+  async function handleCreateWorkspace(name: string, slug: string) {
+    setCreatingWorkspace(true);
+    setWorkspaceError('');
+    try {
+      const workspace = await createWorkspace(name, slug);
+      openWorkspace(workspace.slug);
+    } catch (reason) {
+      setWorkspaceError(getErrorMessage(reason));
+    } finally {
+      setCreatingWorkspace(false);
+    }
   }
 
   async function handlePasswordReset(email: string): Promise<string> {
@@ -323,7 +417,10 @@ function App() {
           history: [{ status: data.status, at: now }],
         };
 
-    if (!demoMode) await saveContent(content);
+    if (!demoMode) {
+      if (!workspaceId) throw new Error('Nenhum painel da empresa está selecionado.');
+      await saveContent(workspaceId, content);
+    }
     setContents((current) => {
       const index = current.findIndex((item) => item.id === content.id);
       if (index < 0) return [...current, content];
@@ -337,7 +434,10 @@ function App() {
   }
 
   async function handleDelete(content: Content) {
-    if (!demoMode) await deleteContent(content.id);
+    if (!demoMode) {
+      if (!workspaceId) throw new Error('Nenhum painel da empresa está selecionado.');
+      await deleteContent(workspaceId, content.id);
+    }
     setContents((current) => current.filter((item) => item.id !== content.id));
     setFormOpen(false);
     setEditing(null);
@@ -363,7 +463,10 @@ function App() {
       reviewComments: [...(content.reviewComments || []), reviewComment],
     };
     try {
-      if (!demoMode) await submitReviewDecision(content.id, status, comment);
+      if (!demoMode) {
+        if (!workspaceId) throw new Error('Nenhum painel da empresa está selecionado.');
+        await submitReviewDecision(workspaceId, content.id, status, comment);
+      }
       setContents((current) => current.map((item) => item.id === updated.id ? updated : item));
       setReviewing(null);
       setError('');
@@ -379,7 +482,8 @@ function App() {
     try {
       const imported = importContentCsv(await file.text());
       if (!demoMode) {
-        await saveContents(imported);
+        if (!workspaceId) throw new Error('Nenhum painel da empresa está selecionado.');
+        await saveContents(workspaceId, imported);
       }
       setContents((current) => [...current, ...imported]);
       const earliestDate = imported.map((content) => content.date).sort()[0];
@@ -421,14 +525,75 @@ function App() {
     );
   }
   if (!session && !demoMode) {
+    if (!authAction && !workspaceSlug && !signupConfirmationNotice) {
+      return (
+        <LandingPage
+          onLogin={() => openAuth('login')}
+          onCreateAccount={() => openAuth('signup')}
+        />
+      );
+    }
+    if (session && !demoMode && workspaceSlug && workspaceError) {
+      return (
+        <main className="auth-page">
+          <section className="auth-card">
+            <div className="brand-mark" aria-hidden="true">YS</div>
+            <h1>Painel indisponível</h1>
+            <p className="muted">{workspaceError}</p>
+            <button className="button" onClick={() => window.location.assign(APP_BASE_PATH)} type="button">Ver meus painéis</button>
+            <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
+          </section>
+        </main>
+      );
+    }
     return (
       <LoginForm
         error={authError}
-        notice={signupConfirmationNotice ? 'E-mail confirmado! Entre com seu e-mail e senha. O acesso ao painel depende do perfil definido pelo administrador.' : ''}
+        initialMode={authAction === 'signup' ? 'signup' : 'login'}
+        notice={signupConfirmationNotice ? 'E-mail confirmado! Entre com seu e-mail e senha para criar ou acessar seu painel.' : ''}
         onSubmit={handleLogin}
         onSignUp={handleSignUp}
         onRequestPasswordReset={handlePasswordReset}
         onUpdatePassword={handlePasswordUpdate}
+      />
+    );
+  }
+  if (session && !demoMode && !workspaceSlug) {
+    if (workspaceLoading) {
+      return <main className="auth-page"><p className="muted">Carregando seus painéis…</p></main>;
+    }
+    if (workspaceError) {
+      return (
+        <main className="auth-page">
+          <section className="auth-card">
+            <div className="brand-mark" aria-hidden="true">YS</div>
+            <h1>Não foi possível carregar seus painéis</h1>
+            <p className="muted">{workspaceError}</p>
+            <button className="button" onClick={() => window.location.reload()} type="button">Tentar novamente</button>
+            <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
+          </section>
+        </main>
+      );
+    }
+    if (workspaces.length === 0) {
+      return (
+        <WorkspaceSetupPage
+          error={workspaceError}
+          pending={creatingWorkspace}
+          onCreate={handleCreateWorkspace}
+          onLogout={() => void handleLogout()}
+        />
+      );
+    }
+    return (
+      <WorkspacePickerPage
+        workspaces={workspaces}
+        onSelect={(slug) => openWorkspace(slug)}
+        onCreate={() => {
+          setWorkspaces([]);
+          setWorkspaceError('');
+        }}
+        onLogout={() => void handleLogout()}
       />
     );
   }
@@ -481,6 +646,9 @@ function App() {
     return (
       <AdminDashboard
         demoMode={demoMode}
+        workspaceId={workspaceId}
+        workspaceName={workspaceName || 'Demonstração'}
+        workspaceSlug={workspaceSlug || 'demo'}
         onExitDemo={exitDemoMode}
         onBack={() => {
           const url = new URL(window.location.href);
@@ -521,15 +689,16 @@ function App() {
         <div className="brand">
           <div className="brand-mark" aria-hidden="true">YS</div>
           <div>
-            <p className="eyebrow">YOUR SPACE · MARKETING</p>
-            <h1>Aprovação de Conteúdo</h1>
+            <p className="eyebrow">YOUR SPACE · {isWorkspaceOwner ? 'ADMINISTRADOR DA EMPRESA' : 'MARKETING'}</p>
+            <h1>{workspaceName || 'Aprovação de Conteúdo'}</h1>
           </div>
         </div>
         <div className="user-menu">
           <span title={demoMode ? 'Dados fictícios desta demonstração' : session?.user.email}>
             {demoMode ? `Demonstração · ${demoRole === 'administrador' ? 'Administrador' : demoRole}` : session?.user.email}
           </span>
-          {activeIsAdmin && <a className="button" href={getAdminDashboardUrl()}>Gerenciar acessos</a>}
+          {activeIsAdmin && <a className="button" href={getAdminDashboardUrl()}>Gerenciar equipe</a>}
+          {!demoMode && <a className="button" href={APP_BASE_PATH}>Trocar painel</a>}
           <button className="button" onClick={() => demoMode ? exitDemoMode() : void handleLogout()} type="button">
             {demoMode ? 'Sair do demo' : 'Sair'}
           </button>
