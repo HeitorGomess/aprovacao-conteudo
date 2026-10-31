@@ -2,7 +2,7 @@ import type { Content, ContentStatus } from '../features/content-approval/types'
 
 interface ReviewCardProps {
   content: Content;
-  onReview: (content: Content) => void;
+  onReview?: (content: Content) => void;
 }
 
 const statusLabels: Record<ContentStatus, string> = {
@@ -57,9 +57,11 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
             ))}
           </section>
         )}
-        <button className="button button-primary review-action" onClick={() => onReview(content)} type="button">
-          Revisar publicação
-        </button>
+        {content.status === 'revisao' && onReview && (
+          <button className="button button-primary review-action" onClick={() => onReview(content)} type="button">
+            Dar parecer
+          </button>
+        )}
       </div>
     </article>
   );

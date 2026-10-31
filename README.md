@@ -23,6 +23,8 @@ Ao confirmar o e-mail, a pessoa volta para a tela de login e entra com a senha c
 
 O cliente usa uma chave **publishable** no navegador. Ela é pública por definição; nunca coloque chaves `secret` ou `service_role` no código. A tabela tem RLS habilitado: programadores editam, revisores leem os conteúdos e enviam pareceres pela função controlada do banco, e administradores gerenciam os perfis por funções restritas.
 
+O painel do revisor mostra publicações em revisão, aprovadas e devolvidas para ajustes nas visualizações Cards, Calendário e Tabela; rascunhos continuam restritos aos programadores. Para habilitar a leitura dos pareceres já registrados, execute novamente o arquivo completo [`SUPABASE_SETUP.sql`](./SUPABASE_SETUP.sql) no SQL Editor.
+
 ## Desenvolvimento local
 
 ```sh

@@ -560,30 +560,28 @@ function App() {
             <span>{monthName}</span>
             <button className="icon-button" onClick={() => shiftMonth(1)} type="button" aria-label="Próximo mês">›</button>
           </div>
+          <div className="view-switch" aria-label="Visualização">
+            <button aria-pressed={view === 'cards'} onClick={() => setView('cards')} type="button">Cards</button>
+            <button aria-pressed={view === 'calendar'} onClick={() => setView('calendar')} type="button">Calendário</button>
+            <button aria-pressed={view === 'table'} onClick={() => setView('table')} type="button">Tabela</button>
+          </div>
           {!isReviewer && (
-            <>
-              <div className="view-switch" aria-label="Visualização">
-                <button aria-pressed={view === 'cards'} onClick={() => setView('cards')} type="button">Cards</button>
-                <button aria-pressed={view === 'calendar'} onClick={() => setView('calendar')} type="button">Calendário</button>
-                <button aria-pressed={view === 'table'} onClick={() => setView('table')} type="button">Tabela</button>
-              </div>
-              <div className="toolbar-actions">
-                <label className="button import-button">
-                  {importing ? 'Importando…' : 'Importar CSV'}
-                  <input
-                    accept=".csv,text/csv"
-                    aria-label="Importar arquivo CSV"
-                    disabled={importing}
-                    onChange={(event) => {
-                      void handleImportCsv(event.target.files?.[0]);
-                      event.target.value = '';
-                    }}
-                    type="file"
-                  />
-                </label>
-                <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
-              </div>
-            </>
+            <div className="toolbar-actions">
+              <label className="button import-button">
+                {importing ? 'Importando…' : 'Importar CSV'}
+                <input
+                  accept=".csv,text/csv"
+                  aria-label="Importar arquivo CSV"
+                  disabled={importing}
+                  onChange={(event) => {
+                    void handleImportCsv(event.target.files?.[0]);
+                    event.target.value = '';
+                  }}
+                  type="file"
+                />
+              </label>
+              <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
+            </div>
           )}
         </div>
       </section>
@@ -638,11 +636,11 @@ function App() {
 
       {loading ? (
         <div className="empty-state"><p>Carregando conteúdos…</p></div>
-      ) : isReviewer && visibleContents.filter((content) => content.status === 'revisao').length === 0 ? (
+      ) : isReviewer && visibleContents.length === 0 ? (
         <div className="empty-state">
           <span className="empty-mark">✓</span>
-          <h2>Nenhuma publicação aguardando revisão</h2>
-          <p>Quando o programador enviar conteúdos para revisão, eles aparecerão aqui.</p>
+          <h2>Nenhuma publicação neste mês</h2>
+          <p>Publicações em revisão e os pareceres já registrados aparecerão aqui. Rascunhos continuam visíveis apenas para programadores.</p>
         </div>
       ) : !isReviewer && monthContents.length === 0 ? (
         <div className="empty-state">
@@ -653,10 +651,14 @@ function App() {
         </div>
       ) : visibleContents.length === 0 ? (
         <div className="empty-state"><h2>Nenhum resultado</h2><p>Ajuste os filtros para ver os conteúdos deste mês.</p></div>
-      ) : isReviewer ? (
-        <section className="content-grid review-grid" aria-label="Publicações aguardando revisão">
-          {visibleContents.filter((content) => content.status === 'revisao').map((content) => (
-            <ReviewCard content={content} key={content.id} onReview={setReviewing} />
+      ) : view === 'cards' && isReviewer ? (
+        <section className="content-grid review-grid" aria-label="Publicações e pareceres">
+          {visibleContents.map((content) => (
+            <ReviewCard
+              content={content}
+              key={content.id}
+              onReview={content.status === 'revisao' ? setReviewing : undefined}
+            />
           ))}
         </section>
       ) : view === 'cards' ? (
@@ -668,16 +670,30 @@ function App() {
       ) : view === 'table' ? (
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Data</th><th>Conteúdo</th><th>Canal</th><th>Formato</th><th>Status</th><th>Link</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Data</th><th>Conteúdo</th><th>Canal</th><th>Formato</th><th>Status</th><th>Link</th>
+                {isReviewer && <th>Parecer</th>}
+              </tr>
+            </thead>
             <tbody>
               {visibleContents.map((content) => (
-                <tr key={content.id} onClick={() => openEditContent(content)}>
+                <tr className={isReviewer ? '' : 'clickable-row'} key={content.id} onClick={isReviewer ? undefined : () => openEditContent(content)}>
                   <td>{dateLabel(content.date)}</td>
                   <td className="table-title">{content.title}</td>
                   <td>{content.channel}</td>
                   <td>{content.format}</td>
                   <td><span className={`status-pill status-${content.status}`}>{statusLabels[content.status]}</span></td>
                   <td>{content.link ? <a href={content.link} onClick={(event) => event.stopPropagation()} target="_blank" rel="noopener noreferrer">Abrir ↗</a> : '—'}</td>
+                  {isReviewer && (
+                    <td>
+                      {content.status === 'revisao' ? (
+                        <button className="button button-primary" onClick={() => setReviewing(content)} type="button">Dar parecer</button>
+                      ) : (
+                        <span className="muted">Parecer registrado</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -696,7 +712,13 @@ function App() {
                 <div className="calendar-day" key={date}>
                   <span className="day-number">{day}</span>
                   {dayContents.map((content) => (
-                    <button className={`calendar-item status-${content.status}`} key={content.id} onClick={() => openEditContent(content)} type="button">
+                    <button
+                      className={`calendar-item status-${content.status}`}
+                      key={content.id}
+                      disabled={isReviewer && content.status !== 'revisao'}
+                      onClick={() => isReviewer ? setReviewing(content) : openEditContent(content)}
+                      type="button"
+                    >
                       {content.title}
                     </button>
                   ))}

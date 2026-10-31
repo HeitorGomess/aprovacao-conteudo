@@ -73,7 +73,7 @@ export default function ReviewDecisionModal({ content, onClose, onSubmit }: Revi
               onClick={() => void submit('ajustes')}
               type="button"
             >
-              {pending ? 'Enviando…' : 'Solicitar alterações'}
+              {pending ? 'Enviando…' : 'Devolver para ajustes'}
             </button>
             <button
               className="button button-primary"

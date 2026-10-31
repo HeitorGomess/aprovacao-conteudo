@@ -99,7 +99,7 @@ create policy posts_select_editors
   to authenticated
   using (
     (
-      data ->> 'status' = 'revisao'
+      data ->> 'status' in ('revisao', 'ajustes', 'aprovado')
       and exists (
         select 1 from public.panel_editors
         where user_id = (select auth.uid()) and role = 'revisor'
