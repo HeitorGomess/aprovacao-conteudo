@@ -122,6 +122,9 @@ a:hover { text-decoration: underline; }
 .workspace-onboarding-archived > p { margin: -7px 0 0; }
 .workspace-onboarding-archived h2 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
 .workspace-admin-topbar { align-items: flex-start; }
+.workspace-back-button { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 18px; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 600; }
+.workspace-back-button:hover { text-decoration: underline; }
+.workspace-back-button span { font-size: 17px; line-height: 1; }
 .workspace-member-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, .7fr) auto; align-items: end; gap: 12px; margin-bottom: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .workspace-member-form .muted { grid-column: 1 / -1; margin: -4px 0 0; }
 .workspace-success { border-color: #b7cfaa; color: #245747; background: #f0f7e9; }
