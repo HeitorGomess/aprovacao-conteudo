@@ -97,12 +97,36 @@ export async function submitReviewDecision(
   status: Extract<ContentStatus, 'aprovado' | 'ajustes'>,
   comment: string,
 ): Promise<void> {
-  const { error } = await supabase.rpc('submit_review_decision', {
+  const params = {
     p_post_id: postId,
     p_status: status,
     p_comment: comment,
+  };
+  const { error } = await supabase.rpc('submit_review_decision', params);
+  if (!error) return;
+
+  if (error.code !== 'PGRST202' || !error.message.includes('p_workspace_id')) throw error;
+
+  const { data: workspace, error: workspaceError } = await supabase
+    .from('workspaces')
+    .select('id')
+    .eq('slug', 'your-space')
+    .maybeSingle();
+
+  if (workspaceError) {
+    throw new Error(
+      `O Supabase ainda está usando a função de parecer do painel multiempresa. Execute novamente o arquivo completo SUPABASE_SETUP.sql para voltar ao painel único. Detalhe: ${workspaceError.message}`,
+    );
+  }
+  if (!workspace?.id) {
+    throw new Error('A função de parecer no Supabase ainda exige um workspace. Execute novamente o arquivo completo SUPABASE_SETUP.sql.');
+  }
+
+  const { error: workspaceDecisionError } = await supabase.rpc('submit_review_decision', {
+    ...params,
+    p_workspace_id: workspace.id,
   });
-  if (error) throw error;
+  if (workspaceDecisionError) throw workspaceDecisionError;
 }
 
 export async function deleteContent(id: string): Promise<void> {
