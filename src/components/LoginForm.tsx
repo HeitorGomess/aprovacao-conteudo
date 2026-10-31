@@ -116,7 +116,6 @@ export default function LoginForm({
           </div>
           <p className="auth-copyright">APROVAÇÃO DE CONTEÚDO <span>·</span> FEITO PARA BOAS IDEIAS</p>
           <div className="auth-decoration auth-decoration-one" aria-hidden="true" />
-          <div className="auth-decoration auth-decoration-two" aria-hidden="true" />
         </div>
 
         <div className="auth-panel">

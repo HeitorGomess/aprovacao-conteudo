@@ -196,7 +196,6 @@ tbody tr:last-child td { border-bottom: 0; }
 .auth-copyright span { padding: 0 5px; color: #d3efab; }
 .auth-decoration { position: absolute; width: 400px; height: 400px; border: 1px solid #ffffff0d; border-radius: 50%; pointer-events: none; }
 .auth-decoration-one { right: -210px; bottom: -180px; box-shadow: 0 0 0 38px #ffffff08, 0 0 0 76px #ffffff06, 0 0 0 114px #ffffff04; }
-.auth-decoration-two { top: 17%; right: 6%; width: 18px; height: 18px; border: 0; background: #d3efab; box-shadow: 0 0 0 10px #d3efab1c; }
 .auth-panel { display: grid; align-content: center; justify-items: center; padding: 56px 44px 24px; }
 .auth-card { width: min(100%, 390px); }
 .auth-card-heading { margin-bottom: 28px; }
@@ -304,7 +303,6 @@ tbody tr:last-child td { border-bottom: 0; }
   .auth-highlight-icon { width: 26px; height: 26px; }
   .auth-copyright { font-size: 8px; }
   .auth-decoration-one { right: -275px; bottom: -200px; }
-  .auth-decoration-two { top: 30%; right: 10%; }
   .auth-panel { align-content: start; padding: 38px 24px 25px; }
   .auth-card { width: min(100%, 430px); }
   .auth-card-heading { margin-bottom: 23px; }
