@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import BrandLockup from './BrandLockup';
+import DeleteArchivedWorkspaceDialog from './DeleteArchivedWorkspaceDialog';
 import type { WorkspaceSummary } from '../features/content-approval/contentService';
 
 function getErrorMessage(reason: unknown): string {
@@ -141,6 +142,7 @@ interface WorkspaceSetupPageProps {
   archivedWorkspaces: WorkspaceSummary[];
   onCreate: (name: string) => Promise<void>;
   onRestoreWorkspace: (workspaceId: string) => Promise<void>;
+  onDeleteWorkspace: (workspaceId: string) => Promise<void>;
   onLogout: () => void;
 }
 
@@ -150,11 +152,16 @@ export function WorkspaceSetupPage({
   archivedWorkspaces,
   onCreate,
   onRestoreWorkspace,
+  onDeleteWorkspace,
   onLogout,
 }: WorkspaceSetupPageProps) {
   const [name, setName] = useState('');
   const [restoreError, setRestoreError] = useState('');
   const [restoringWorkspaceId, setRestoringWorkspaceId] = useState('');
+  const [workspaceToDelete, setWorkspaceToDelete] = useState<WorkspaceSummary | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteNotice, setDeleteNotice] = useState('');
+  const [deletingWorkspaceId, setDeletingWorkspaceId] = useState('');
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -170,6 +177,22 @@ export function WorkspaceSetupPage({
       setRestoreError(getErrorMessage(reason));
     } finally {
       setRestoringWorkspaceId('');
+    }
+  }
+
+  async function deleteArchivedWorkspace() {
+    if (!workspaceToDelete) return;
+    setDeletingWorkspaceId(workspaceToDelete.id);
+    setDeleteError('');
+    setDeleteNotice('');
+    try {
+      await onDeleteWorkspace(workspaceToDelete.id);
+      setDeleteNotice(`${workspaceToDelete.name} foi excluída permanentemente.`);
+      setWorkspaceToDelete(null);
+    } catch (reason) {
+      setDeleteError(getErrorMessage(reason));
+    } finally {
+      setDeletingWorkspaceId('');
     }
   }
 
@@ -207,20 +230,46 @@ export function WorkspaceSetupPage({
             {archivedWorkspaces.map((workspace) => (
               <div className="workspace-archived-row" key={workspace.id}>
                 <strong>{workspace.name}</strong>
-                <button
-                  className="button"
-                  disabled={restoringWorkspaceId !== ''}
-                  onClick={() => void restore(workspace)}
-                  type="button"
-                >
-                  {restoringWorkspaceId === workspace.id ? 'Restaurando…' : 'Restaurar'}
-                </button>
+                <div className="workspace-archived-actions">
+                  <button
+                    className="button"
+                    disabled={restoringWorkspaceId !== '' || deletingWorkspaceId !== ''}
+                    onClick={() => void restore(workspace)}
+                    type="button"
+                  >
+                    {restoringWorkspaceId === workspace.id ? 'Restaurando…' : 'Restaurar'}
+                  </button>
+                  <button
+                    className="button button-danger"
+                    disabled={restoringWorkspaceId !== '' || deletingWorkspaceId !== ''}
+                    onClick={() => {
+                      setDeleteError('');
+                      setWorkspaceToDelete(workspace);
+                    }}
+                    type="button"
+                  >
+                    Excluir
+                  </button>
+                </div>
               </div>
             ))}
             {restoreError && <p className="form-error" role="alert">{restoreError}</p>}
+            {deleteNotice && <p className="notice workspace-success" role="status">{deleteNotice}</p>}
           </section>
         )}
       </section>
+      {workspaceToDelete && (
+        <DeleteArchivedWorkspaceDialog
+          workspaceName={workspaceToDelete.name}
+          pending={deletingWorkspaceId === workspaceToDelete.id}
+          error={deleteError}
+          onClose={() => {
+            setWorkspaceToDelete(null);
+            setDeleteError('');
+          }}
+          onConfirm={() => void deleteArchivedWorkspace()}
+        />
+      )}
     </main>
   );
 }

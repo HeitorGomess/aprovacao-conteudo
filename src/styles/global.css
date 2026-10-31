@@ -60,8 +60,16 @@ a:hover { text-decoration: underline; }
 .workspace-archived-list { padding-top: 18px; border-top: 1px solid var(--line); }
 .workspace-archived-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px; border: 1px solid var(--line); border-radius: 9px; }
 .workspace-archived-row > div { display: grid; gap: 3px; min-width: 0; }
+.workspace-archived-row > .workspace-archived-actions { display: flex; align-items: center; flex: none; gap: 8px; }
 .workspace-archived-row strong { overflow-wrap: anywhere; font-size: 13px; }
 .workspace-archived-row span { color: var(--muted); font-size: 11px; }
+.workspace-delete-backdrop { z-index: 40; place-items: center; padding: 16px; }
+.workspace-delete-modal { width: min(100%, 480px); }
+.workspace-delete-content { display: grid; gap: 12px; padding: 20px 22px; }
+.workspace-delete-content > p { margin: 0; line-height: 1.55; }
+.workspace-delete-warning { padding: 12px; border: 1px solid #efc9c1; border-radius: 8px; color: #8d2d1e; background: #fff7f5; font-size: 13px; }
+.workspace-delete-modal .button-danger { border-color: #e0aaa1; background: #fff8f6; }
+.workspace-delete-modal .form-error { padding: 10px; border-radius: 7px; background: #fff1ed; }
 .profile-menu { position: relative; }
 .profile-menu-trigger { display: inline-flex; min-height: 40px; align-items: center; gap: 9px; padding: 4px 11px 4px 5px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 600; }
 .profile-menu-trigger:hover, .profile-menu-trigger[aria-expanded="true"] { border-color: #9da69f; background: var(--surface-soft); }
@@ -355,7 +363,8 @@ tbody tr:last-child td { border-bottom: 0; }
   .workspace-admin-topbar { align-items: flex-start; }
   .workspace-member-form { grid-template-columns: 1fr; }
   .workspace-member-form > .button, .workspace-member-form .muted { grid-column: auto; }
-  .workspace-archived-row { align-items: flex-start; }
+  .workspace-archived-row { align-items: flex-start; flex-wrap: wrap; }
+  .workspace-archived-row > .workspace-archived-actions { width: 100%; }
   .profile-settings-page { margin-top: 28px; }
   .profile-settings-heading h1 { font-size: 25px; }
   .profile-settings-card { grid-template-columns: 1fr; gap: 22px; padding: 18px; }

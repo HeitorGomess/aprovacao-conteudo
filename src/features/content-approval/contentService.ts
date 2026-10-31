@@ -116,6 +116,13 @@ export async function restoreWorkspace(workspaceId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteArchivedWorkspace(workspaceId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_archived_workspace', {
+    p_workspace_id: workspaceId,
+  });
+  if (error) throw error;
+}
+
 export async function saveUserProfile(name: string, avatarFile?: File): Promise<User> {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;

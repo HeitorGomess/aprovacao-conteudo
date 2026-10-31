@@ -620,6 +620,45 @@ begin
 end;
 $$;
 
+create or replace function public.delete_archived_workspace(p_workspace_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  workspace_slug text;
+  workspace_archived_at timestamptz;
+begin
+  select workspaces.slug, workspaces.archived_at
+  into workspace_slug, workspace_archived_at
+  from public.workspaces
+  where workspaces.id = p_workspace_id
+  for update;
+
+  if not found
+    or workspace_slug = 'your-space'
+    or workspace_archived_at is null then
+    raise exception 'Somente empresas arquivadas podem ser excluídas permanentemente.';
+  end if;
+
+  if not exists (
+    select 1 from public.workspace_members as members
+    where members.workspace_id = p_workspace_id
+      and members.user_id = (select auth.uid())
+      and members.role = 'administrador'
+  ) and not exists (
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem excluir esta empresa.';
+  end if;
+
+  delete from public.workspaces
+  where id = p_workspace_id;
+end;
+$$;
+
 drop function if exists public.verify_workspace_access(text);
 create or replace function public.verify_workspace_access(p_workspace_slug text)
 returns table (
@@ -1056,6 +1095,7 @@ revoke all on function public.list_user_workspaces() from public;
 revoke all on function public.rename_workspace(uuid, text) from public;
 revoke all on function public.archive_workspace(uuid) from public;
 revoke all on function public.restore_workspace(uuid) from public;
+revoke all on function public.delete_archived_workspace(uuid) from public;
 revoke all on function public.verify_workspace_access(text) from public;
 revoke all on function public.list_workspace_members(uuid) from public;
 revoke all on function public.add_workspace_member(uuid, text, text) from public;
@@ -1070,6 +1110,7 @@ grant execute on function public.list_user_workspaces() to authenticated;
 grant execute on function public.rename_workspace(uuid, text) to authenticated;
 grant execute on function public.archive_workspace(uuid) to authenticated;
 grant execute on function public.restore_workspace(uuid) to authenticated;
+grant execute on function public.delete_archived_workspace(uuid) to authenticated;
 grant execute on function public.verify_workspace_access(text) to authenticated;
 grant execute on function public.list_workspace_members(uuid) to authenticated;
 grant execute on function public.add_workspace_member(uuid, text, text) to authenticated;

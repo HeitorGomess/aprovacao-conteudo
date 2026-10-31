@@ -14,6 +14,7 @@ import WorkspaceTeamDashboard from './components/WorkspaceTeamDashboard';
 import {
   createWorkspace,
   archiveWorkspace,
+  deleteArchivedWorkspace,
   deleteContent,
   fetchContents,
   listUserWorkspaces,
@@ -639,6 +640,28 @@ function App() {
     updateWorkspaceUrl(activeRestored.slug);
   }
 
+  async function handleDeleteArchivedWorkspace(workspaceId: string): Promise<void> {
+    if (!demoMode) await deleteArchivedWorkspace(workspaceId);
+    const remainingWorkspaces = workspaces.filter((workspace) => workspace.id !== workspaceId);
+    setWorkspaces(remainingWorkspaces);
+    if (activeWorkspace?.id === workspaceId) {
+      const nextWorkspace = remainingWorkspaces.find((workspace) => !workspace.archivedAt) || null;
+      setActiveWorkspace(nextWorkspace);
+      setRole(nextWorkspace?.role || null);
+      setIsAdmin(Boolean(nextWorkspace?.role === 'administrador' || isSystemAdmin));
+      setContents([]);
+      setError('');
+      if (nextWorkspace) {
+        updateWorkspaceUrl(nextWorkspace.slug);
+      } else {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('workspace');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+        window.sessionStorage.removeItem('activeWorkspaceSlug');
+      }
+    }
+  }
+
   async function handleSaveProfile(name: string, avatarFile?: File): Promise<string> {
     if (demoMode) return '';
     const updatedUser = await saveUserProfile(name, avatarFile);
@@ -786,6 +809,7 @@ function App() {
         archivedWorkspaces={workspaces.filter((workspace) => workspace.archivedAt)}
         onCreate={handleSetupCreateWorkspace}
         onRestoreWorkspace={handleRestoreWorkspace}
+        onDeleteWorkspace={handleDeleteArchivedWorkspace}
         onLogout={() => void handleLogout()}
       />
     );
@@ -824,6 +848,7 @@ function App() {
         onRenameWorkspace={handleRenameWorkspace}
         onArchiveWorkspace={handleArchiveWorkspace}
         onRestoreWorkspace={handleRestoreWorkspace}
+        onDeleteWorkspace={handleDeleteArchivedWorkspace}
         onOpenPanel={openPanelPage}
         onOpenSettings={openProfileSettings}
         onNewWorkspace={requestWorkspaceCreation}

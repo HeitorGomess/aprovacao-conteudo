@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import ProfileMenu from './ProfileMenu';
 import BrandLockup from './BrandLockup';
+import DeleteArchivedWorkspaceDialog from './DeleteArchivedWorkspaceDialog';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import {
   addWorkspaceMember,
@@ -28,6 +29,7 @@ interface WorkspaceTeamDashboardProps {
   onRenameWorkspace: (workspaceId: string, name: string) => Promise<void>;
   onArchiveWorkspace: (workspaceId: string) => Promise<void>;
   onRestoreWorkspace: (workspaceId: string) => Promise<void>;
+  onDeleteWorkspace: (workspaceId: string) => Promise<void>;
   onOpenPanel: () => void;
   onOpenSettings: () => void;
   onNewWorkspace: () => void;
@@ -86,6 +88,7 @@ export default function WorkspaceTeamDashboard({
   onRenameWorkspace,
   onArchiveWorkspace,
   onRestoreWorkspace,
+  onDeleteWorkspace,
   onOpenPanel,
   onOpenSettings,
   onNewWorkspace,
@@ -104,6 +107,9 @@ export default function WorkspaceTeamDashboard({
   const [notice, setNotice] = useState('');
   const [workspaceNameInput, setWorkspaceNameInput] = useState(workspaceName);
   const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const [workspaceToDelete, setWorkspaceToDelete] = useState<WorkspaceSummary | null>(null);
+  const [deletingWorkspaceId, setDeletingWorkspaceId] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     setWorkspaceNameInput(workspaceName);
@@ -237,6 +243,21 @@ export default function WorkspaceTeamDashboard({
     }
   }
 
+  async function deleteArchivedWorkspace() {
+    if (!workspaceToDelete) return;
+    setDeletingWorkspaceId(workspaceToDelete.id);
+    setDeleteError('');
+    try {
+      await onDeleteWorkspace(workspaceToDelete.id);
+      setNotice(`${workspaceToDelete.name} foi excluída permanentemente.`);
+      setWorkspaceToDelete(null);
+    } catch (reason) {
+      setDeleteError(`Não foi possível excluir a empresa: ${getErrorMessage(reason)}`);
+    } finally {
+      setDeletingWorkspaceId('');
+    }
+  }
+
   return (
     <main className="page-shell">
       <header className="topbar workspace-admin-topbar">
@@ -340,14 +361,27 @@ export default function WorkspaceTeamDashboard({
                       <span>Conteúdos e equipe preservados</span>
                     </div>
                     {canRestore && (
-                      <button
-                        className="button"
-                        disabled={savingWorkspace}
-                        onClick={() => void restoreArchivedWorkspace(workspace)}
-                        type="button"
-                      >
-                        Restaurar
-                      </button>
+                      <div className="workspace-archived-actions">
+                        <button
+                          className="button"
+                          disabled={savingWorkspace || deletingWorkspaceId !== ''}
+                          onClick={() => void restoreArchivedWorkspace(workspace)}
+                          type="button"
+                        >
+                          Restaurar
+                        </button>
+                        <button
+                          className="button button-danger"
+                          disabled={savingWorkspace || deletingWorkspaceId !== ''}
+                          onClick={() => {
+                            setDeleteError('');
+                            setWorkspaceToDelete(workspace);
+                          }}
+                          type="button"
+                        >
+                          Excluir
+                        </button>
+                      </div>
                     )}
                   </div>
                 );
@@ -437,6 +471,18 @@ export default function WorkspaceTeamDashboard({
             )}
           </section>
         </>
+      )}
+      {workspaceToDelete && (
+        <DeleteArchivedWorkspaceDialog
+          workspaceName={workspaceToDelete.name}
+          pending={deletingWorkspaceId === workspaceToDelete.id}
+          error={deleteError}
+          onClose={() => {
+            setWorkspaceToDelete(null);
+            setDeleteError('');
+          }}
+          onConfirm={() => void deleteArchivedWorkspace()}
+        />
       )}
     </main>
   );
