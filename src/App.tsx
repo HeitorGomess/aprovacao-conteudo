@@ -204,7 +204,12 @@ function App() {
     setError('');
     async function loadWorkspace() {
       try {
-        const access = await verifyEditor(userId);
+        const [accessResult, contentsResult] = await Promise.allSettled([
+          verifyEditor(userId),
+          adminView ? Promise.resolve(null) : fetchContents(),
+        ]);
+        if (accessResult.status === 'rejected') throw accessResult.reason;
+        const access = accessResult.value;
         if (!active) return;
         accessVerified = true;
         setRole(access.role);
@@ -216,7 +221,9 @@ function App() {
           setError('Esta conta ainda não recebeu um perfil no painel. Peça ao administrador para autorizar seu acesso.');
           return;
         }
-        if (access.role) setContents(await fetchContents());
+        if (adminView) return;
+        if (contentsResult.status === 'rejected') throw contentsResult.reason;
+        setContents(access.role ? contentsResult.value || [] : []);
         unsubscribe = subscribeToContents(
           setContents,
           (reason) => setError(`Problema na sincronização: ${getErrorMessage(reason)}`),
