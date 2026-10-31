@@ -10,26 +10,12 @@ Aplicação React + TypeScript para planejar conteúdos, acompanhar revisões e 
 ## Supabase
 
 1. Execute [`SUPABASE_SETUP.sql`](./SUPABASE_SETUP.sql) no SQL Editor do projeto.
-2. Em **Authentication → Providers → Email**, desative novos cadastros públicos.
-3. Em **Authentication → Users**, convide as pessoas que poderão acessar o painel.
-4. Conceda o perfil de administrador ao responsável pelo painel uma única vez, substituindo pelo e-mail da conta já cadastrada:
+2. Em **Authentication → Providers → Email**, habilite o cadastro por e-mail e mantenha a confirmação de e-mail ativa.
+3. Crie uma conta para `gomesheitorvp@gmail.com` pela página inicial e confirme o endereço. O SQL configura essa conta como administradora geral e programadora, automaticamente. Se ela já existir e estiver confirmada, a configuração também é aplicada ao executar o SQL.
+4. Em **Authentication → URL Configuration**, configure a URL publicada (incluindo o caminho do GitHub Pages, se houver) como Site URL e Redirect URL. Adicione também a URL de confirmação usada pelo cadastro, com `?auth=confirmed` ao final; por exemplo, `https://seu-site.com/?auth=confirmed` ou `https://seu-usuario.github.io/marketing-content-dashboard/?auth=confirmed`. Para desenvolvimento, adicione também `http://localhost:5173/aprovacao-conteudo/?auth=confirmed`.
+5. Os usuários podem criar a própria conta na tela de login, mas começam sem acesso ao painel. O administrador abre **Gerenciar acessos** e escolhe **Programador**, **Revisor** ou **Sem acesso** para cada conta criada. As alterações são salvas imediatamente; administradores não podem ser rebaixados por essa tela.
 
-   ```sql
-   insert into public.panel_admins (user_id)
-   select id from auth.users where email = 'admin@exemplo.com'
-   on conflict do nothing;
-   ```
-
-   Se essa conta também for programadora, autorize-a para o calendário:
-
-   ```sql
-   insert into public.panel_editors (user_id, role)
-   select id, 'programador' from auth.users where email = 'admin@exemplo.com'
-   on conflict (user_id) do update set role = excluded.role;
-   ```
-
-   Depois, abra **Gerenciar acessos** no painel. Essa tela lista as contas existentes em Authentication → Users. Selecione **Programador**, **Revisor** ou **Sem acesso**; a alteração é salva imediatamente. Administradores não podem ser rebaixados por essa tela. A conta deve existir no Supabase antes de receber um perfil.
-5. Em **Authentication → URL Configuration**, configure a URL do GitHub Pages como Site URL e Redirect URL.
+Ao confirmar o e-mail, a pessoa volta para a tela de login e entra com a senha cadastrada. O perfil escolhido pelo administrador continua salvo no Supabase e é aplicado quando ela entrar; confirme que a função `list_panel_accounts` e as tabelas estão configuradas executando o SQL acima. O link **Esqueci minha senha** envia uma mensagem de recuperação para o e-mail informado. Configure a URL local e publicada como Redirect URL do Supabase para que o link retorne ao app.
 
 O cliente usa uma chave **publishable** no navegador. Ela é pública por definição; nunca coloque chaves `secret` ou `service_role` no código. A tabela tem RLS habilitado: programadores editam, revisores leem os conteúdos e enviam pareceres pela função controlada do banco, e administradores gerenciam os perfis por funções restritas.
 

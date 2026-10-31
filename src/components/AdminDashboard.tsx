@@ -10,6 +10,7 @@ import {
 interface AdminDashboardProps {
   demoMode: boolean;
   onBack: () => void;
+  onExitDemo: () => void;
 }
 
 const demoAccounts: PanelAccount[] = [
@@ -29,25 +30,35 @@ const roleLabels: Record<AccountRole, string> = {
 function getErrorMessage(reason: unknown): string {
   if (reason instanceof Error) return reason.message;
   if (typeof reason === 'object' && reason !== null && 'message' in reason && typeof reason.message === 'string') {
-    return reason.message;
+    const message = reason.message;
+    if (message.includes('Could not find the function') || message.includes('list_panel_accounts')) {
+      return 'A função de gestão não está configurada neste projeto Supabase. Execute novamente o arquivo SUPABASE_SETUP.sql no SQL Editor do projeto conectado ao app.';
+    }
+    if (message.includes('Somente administradores')) {
+      return 'Esta sessão não está cadastrada como administradora no projeto Supabase conectado ao app.';
+    }
+    return message;
   }
   return 'Ocorreu um erro inesperado.';
 }
 
-export default function AdminDashboard({ demoMode, onBack }: AdminDashboardProps) {
+export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDashboardProps) {
   const [accounts, setAccounts] = useState<PanelAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    let active = true;
     if (demoMode) {
       setAccounts(demoAccounts);
       setLoading(false);
-      return;
+      return () => {
+        active = false;
+      };
     }
 
-    let active = true;
     listPanelAccounts()
       .then((loadedAccounts) => {
         if (active) setAccounts(loadedAccounts);
@@ -63,6 +74,18 @@ export default function AdminDashboard({ demoMode, onBack }: AdminDashboardProps
       active = false;
     };
   }, [demoMode]);
+
+  async function refreshAccounts() {
+    setRefreshing(true);
+    setError('');
+    try {
+      setAccounts(demoMode ? demoAccounts : await listPanelAccounts());
+    } catch (reason) {
+      setError(`Não foi possível atualizar as contas: ${getErrorMessage(reason)}`);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function changeRole(userId: string, role: EditorRole | 'sem_acesso') {
     setSavingUserId(userId);
@@ -87,9 +110,9 @@ export default function AdminDashboard({ demoMode, onBack }: AdminDashboardProps
     <main className="page-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true">A</div>
+          <div className="brand-mark" aria-hidden="true">YS</div>
           <div>
-            <p className="eyebrow">MARKETING · WORKSPACE</p>
+            <p className="eyebrow">YOUR SPACE · MARKETING</p>
             <h1>Gerenciar acessos</h1>
           </div>
         </div>
@@ -98,14 +121,29 @@ export default function AdminDashboard({ demoMode, onBack }: AdminDashboardProps
 
       {demoMode && (
         <div className="notice demo-banner" role="status">
-          Demonstração. As alterações de perfil não são salvas.
+          <span>Modo demonstração: estas contas são fictícias e as alterações não são salvas.</span>
+          <button className="button demo-exit-button" onClick={onExitDemo} type="button">
+            Abrir gestão real
+          </button>
         </div>
       )}
 
-      <section className="admin-intro">
-        <p className="eyebrow">ADMINISTRAÇÃO</p>
-        <h2>Contas e permissões</h2>
-        <p>Escolha o que cada conta pode fazer. As alterações são aplicadas imediatamente.</p>
+      <section className="admin-intro admin-intro-row">
+        <div>
+          <p className="eyebrow">ADMINISTRAÇÃO</p>
+          <h2>Contas e permissões</h2>
+          <p>Escolha o que cada conta pode fazer. As alterações são aplicadas imediatamente.</p>
+        </div>
+        {!demoMode && (
+          <button
+            className="button"
+            disabled={refreshing || savingUserId !== ''}
+            onClick={() => void refreshAccounts()}
+            type="button"
+          >
+            {refreshing ? 'Atualizando…' : 'Atualizar contas'}
+          </button>
+        )}
       </section>
 
       <section className="permission-legend" aria-label="Descrição dos perfis">
@@ -121,12 +159,20 @@ export default function AdminDashboard({ demoMode, onBack }: AdminDashboardProps
       ) : accounts.length === 0 ? (
         <div className="empty-state">
           <h2>Nenhuma conta encontrada</h2>
-          <p>Convide as pessoas em Authentication → Users no Supabase e atualize esta tela.</p>
+          <p>Confira se o cadastro aparece em Supabase → Authentication → Users e se este app está conectado ao mesmo projeto. Contas recém-cadastradas, mesmo sem confirmar o e-mail, devem aparecer aqui.</p>
+          <button
+            className="button"
+            disabled={refreshing}
+            onClick={() => void refreshAccounts()}
+            type="button"
+          >
+            {refreshing ? 'Atualizando…' : 'Atualizar lista de contas'}
+          </button>
         </div>
       ) : (
         <section className="account-list" aria-label="Contas cadastradas">
           <div className="account-list-heading">
-            <span>Conta</span>
+            <span>Conta ({accounts.length})</span>
             <span>Perfil de acesso</span>
           </div>
           {accounts.map((account) => (

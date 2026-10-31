@@ -31,6 +31,54 @@ begin
 end;
 $$;
 
+create or replace function public.sync_primary_admin()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if lower(coalesce(new.email, '')) = 'gomesheitorvp@gmail.com'
+    and new.email_confirmed_at is not null then
+    insert into public.panel_admins (user_id)
+    values (new.id)
+    on conflict (user_id) do nothing;
+
+    insert into public.panel_editors (user_id, role)
+    values (new.id, 'programador')
+    on conflict (user_id) do update set role = excluded.role;
+  elsif tg_op = 'UPDATE'
+    and lower(coalesce(old.email, '')) = 'gomesheitorvp@gmail.com'
+    and lower(coalesce(new.email, '')) <> 'gomesheitorvp@gmail.com' then
+    delete from public.panel_admins where user_id = new.id;
+    delete from public.panel_editors where user_id = new.id;
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.sync_primary_admin() from public;
+
+drop trigger if exists sync_primary_admin on auth.users;
+create trigger sync_primary_admin
+  after insert or update of email, email_confirmed_at on auth.users
+  for each row execute function public.sync_primary_admin();
+
+insert into public.panel_admins (user_id)
+select id
+from auth.users
+where lower(coalesce(email, '')) = 'gomesheitorvp@gmail.com'
+  and email_confirmed_at is not null
+on conflict (user_id) do nothing;
+
+insert into public.panel_editors (user_id, role)
+select id, 'programador'
+from auth.users
+where lower(coalesce(email, '')) = 'gomesheitorvp@gmail.com'
+  and email_confirmed_at is not null
+on conflict (user_id) do update set role = excluded.role;
+
 alter table public.posts enable row level security;
 alter table public.panel_editors enable row level security;
 alter table public.panel_admins enable row level security;

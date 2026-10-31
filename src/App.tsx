@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import AdminDashboard from './components/AdminDashboard';
 import ContentCard from './components/ContentCard';
@@ -72,8 +72,12 @@ function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<EditorRole | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [accessUserId, setAccessUserId] = useState<string | null>(null);
+  const [accessCheckError, setAccessCheckError] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [signupConfirmationNotice, setSignupConfirmationNotice] = useState(false);
   const [contents, setContents] = useState<Content[]>(() => demoMode ? createMockContents() : []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -86,6 +90,11 @@ function App() {
   const [editing, setEditing] = useState<Content | null>(null);
   const [importing, setImporting] = useState(false);
   const [reviewing, setReviewing] = useState<Content | null>(null);
+  const authUserId = useRef<string | null>(null);
+  const signupConfirmationRedirect = useRef(
+    new URLSearchParams(window.location.search).get('auth') === 'confirmed'
+      || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'signup',
+  );
 
   useEffect(() => {
     if (demoMode) {
@@ -94,21 +103,48 @@ function App() {
     }
 
     let active = true;
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (active) {
+        const confirmingSignup = event === 'SIGNED_IN' && signupConfirmationRedirect.current;
+        const nextUserId = nextSession?.user.id ?? null;
+        if (authUserId.current !== nextUserId) {
+          authUserId.current = nextUserId;
+          setRole(null);
+          setIsAdmin(false);
+          setAccessUserId(null);
+          setAccessCheckError('');
+          setLoading(Boolean(nextSession));
+        }
+        if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
+        if (event === 'SIGNED_OUT' || event === 'SIGNED_IN') setPasswordRecovery(false);
         setSession(nextSession);
-        setRole(null);
-        setIsAdmin(false);
         setAuthError('');
-        setAuthLoading(false);
+        if (confirmingSignup) setAuthLoading(true);
+        else setAuthLoading(false);
       }
     });
 
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!active) return;
       if (sessionError) setAuthError(sessionError.message);
+      const nextUserId = data.session?.user.id ?? null;
+      if (authUserId.current !== nextUserId) {
+        authUserId.current = nextUserId;
+        setRole(null);
+        setIsAdmin(false);
+        setAccessUserId(null);
+        setAccessCheckError('');
+        setLoading(Boolean(data.session));
+      }
       setSession(data.session);
-      setAuthLoading(false);
+      if (signupConfirmationRedirect.current && !data.session) {
+        signupConfirmationRedirect.current = false;
+        setSignupConfirmationNotice(true);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('auth');
+        window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+      }
+      if (!(signupConfirmationRedirect.current && data.session)) setAuthLoading(false);
     }).catch((reason: unknown) => {
       if (active) {
         setAuthError(getErrorMessage(reason));
@@ -121,6 +157,32 @@ function App() {
       authListener.subscription.unsubscribe();
     };
   }, [demoMode]);
+
+  useEffect(() => {
+    if (demoMode || !session || !signupConfirmationRedirect.current) return;
+
+    signupConfirmationRedirect.current = false;
+    setPasswordRecovery(false);
+    setAuthLoading(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('auth');
+    url.hash = '';
+    window.history.replaceState({}, '', `${url.pathname}${url.search}`);
+
+    void supabase.auth.signOut({ scope: 'local' }).then(({ error: signOutError }) => {
+      if (signOutError) throw signOutError;
+      setSession(null);
+      setRole(null);
+      setIsAdmin(false);
+      setAccessUserId(null);
+      setSignupConfirmationNotice(true);
+    }).catch((reason: unknown) => {
+      setAuthError(`E-mail confirmado, mas não foi possível voltar ao login: ${getErrorMessage(reason)}`);
+      setSession(null);
+    }).finally(() => {
+      setAuthLoading(false);
+    });
+  }, [demoMode, session]);
 
   useEffect(() => {
     if (demoMode) {
@@ -137,14 +199,18 @@ function App() {
 
     let active = true;
     let unsubscribe: (() => void) | undefined;
+    let accessVerified = false;
     setLoading(true);
     setError('');
     async function loadWorkspace() {
       try {
         const access = await verifyEditor(userId);
         if (!active) return;
+        accessVerified = true;
         setRole(access.role);
         setIsAdmin(access.isAdmin);
+        setAccessUserId(userId);
+        setAccessCheckError('');
         if (!access.role && !access.isAdmin) {
           setContents([]);
           setError('Esta conta ainda não recebeu um perfil no painel. Peça ao administrador para autorizar seu acesso.');
@@ -156,7 +222,14 @@ function App() {
           (reason) => setError(`Problema na sincronização: ${getErrorMessage(reason)}`),
         );
       } catch (reason) {
-        if (active) setError(`Não foi possível carregar os conteúdos: ${getErrorMessage(reason)}`);
+        if (active) {
+          const message = getErrorMessage(reason);
+          if (!accessVerified) {
+            setAccessCheckError(`Não foi possível verificar as permissões desta conta: ${message}`);
+            setAccessUserId(userId);
+          }
+          setError(`Não foi possível carregar os conteúdos: ${message}`);
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -188,11 +261,32 @@ function App() {
 
   async function handleLogin(email: string, password: string) {
     const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-    if (loginError) {
-      setAuthError(`Não foi possível entrar: ${loginError.message}`);
-      return;
-    }
-    setAuthError('');
+    if (loginError) throw new Error(`Não foi possível entrar: ${loginError.message}`);
+  }
+
+  async function handleSignUp(email: string, password: string): Promise<string> {
+    const confirmationUrl = new URL(window.location.pathname, window.location.origin);
+    confirmationUrl.searchParams.set('auth', 'confirmed');
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: confirmationUrl.toString() },
+    });
+    if (signUpError) throw new Error(`Não foi possível criar a conta: ${signUpError.message}`);
+    return 'Conta criada. Confirme seu e-mail e aguarde o administrador liberar seu perfil de acesso.';
+  }
+
+  async function handlePasswordReset(email: string): Promise<string> {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}${window.location.pathname}`,
+    });
+    if (resetError) throw new Error(`Não foi possível enviar o link: ${resetError.message}`);
+    return 'Se existir uma conta para este e-mail, você receberá um link para redefinir a senha.';
+  }
+
+  async function handlePasswordUpdate(password: string) {
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) throw new Error(`Não foi possível atualizar a senha: ${updateError.message}`);
   }
 
   async function handleLogout() {
@@ -306,19 +400,65 @@ function App() {
   function exitDemoMode() {
     const url = new URL(window.location.href);
     url.searchParams.delete('demo');
+    url.searchParams.delete('role');
     window.location.assign(url);
   }
 
   if (authLoading) {
     return <main className="auth-page"><p className="muted">Verificando acesso…</p></main>;
   }
+  if (passwordRecovery && !demoMode) {
+    return (
+      <LoginForm
+        error={authError}
+        notice={signupConfirmationNotice ? 'E-mail confirmado! Entre com seu e-mail e senha. O acesso ao painel depende do perfil definido pelo administrador.' : ''}
+        recovery
+        onSubmit={handleLogin}
+        onSignUp={handleSignUp}
+        onRequestPasswordReset={handlePasswordReset}
+        onUpdatePassword={handlePasswordUpdate}
+      />
+    );
+  }
   if (!session && !demoMode) {
-    return <LoginForm error={authError} onSubmit={handleLogin} />;
+    return (
+      <LoginForm
+        error={authError}
+        notice={signupConfirmationNotice ? 'E-mail confirmado! Entre com seu e-mail e senha. O acesso ao painel depende do perfil definido pelo administrador.' : ''}
+        onSubmit={handleLogin}
+        onSignUp={handleSignUp}
+        onRequestPasswordReset={handlePasswordReset}
+        onUpdatePassword={handlePasswordUpdate}
+      />
+    );
   }
   const activeIsAdmin = demoMode ? demoRole === 'administrador' : isAdmin;
   const activeRole = demoMode
     ? demoRole === 'administrador' ? 'programador' : demoRole
     : role;
+  if (
+    adminView
+    && !demoMode
+    && session
+    && accessUserId !== session.user.id
+  ) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="brand-mark" aria-hidden="true">YS</div>
+          <h1>{accessCheckError ? 'Não foi possível verificar o acesso' : 'Verificando permissões…'}</h1>
+          <p className="muted">
+            {accessCheckError || 'Aguarde enquanto confirmamos as permissões desta conta.'}
+          </p>
+          {accessCheckError && (
+            <button className="button" onClick={() => window.location.reload()} type="button">
+              Tentar novamente
+            </button>
+          )}
+        </section>
+      </main>
+    );
+  }
   if (!activeRole && loading) {
     return <main className="auth-page"><p className="muted">Verificando perfil de acesso…</p></main>;
   }
@@ -327,7 +467,7 @@ function App() {
       return (
         <main className="auth-page">
           <section className="auth-card">
-            <div className="brand-mark" aria-hidden="true">A</div>
+            <div className="brand-mark" aria-hidden="true">YS</div>
             <h1>Acesso restrito</h1>
             <p className="muted">Somente administradores podem gerenciar os perfis das contas.</p>
             <button className="button" onClick={() => window.location.assign(window.location.pathname)} type="button">
@@ -341,6 +481,7 @@ function App() {
     return (
       <AdminDashboard
         demoMode={demoMode}
+        onExitDemo={exitDemoMode}
         onBack={() => {
           const url = new URL(window.location.href);
           url.searchParams.delete('admin');
@@ -353,7 +494,7 @@ function App() {
     return (
       <main className="auth-page">
         <section className="auth-card">
-          <div className="brand-mark" aria-hidden="true">A</div>
+          <div className="brand-mark" aria-hidden="true">YS</div>
           <p className="eyebrow">ACESSO AO WORKSPACE</p>
           <h1>Perfil não configurado</h1>
           <p className="muted">{error || 'Peça ao administrador para atribuir o perfil de programador ou revisor.'}</p>
@@ -378,9 +519,9 @@ function App() {
     <main className="page-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true">A</div>
+          <div className="brand-mark" aria-hidden="true">YS</div>
           <div>
-            <p className="eyebrow">MARKETING · WORKSPACE</p>
+            <p className="eyebrow">YOUR SPACE · MARKETING</p>
             <h1>Aprovação de Conteúdo</h1>
           </div>
         </div>
