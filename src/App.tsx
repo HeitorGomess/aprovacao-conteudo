@@ -994,8 +994,7 @@ function App() {
         <div className="user-menu">
           <ThemeToggle />
           {isWorkspaceAdmin && (
-            <label className="view-as-selector">
-              <span>Visualizar como:</span>
+            <div className="view-as-selector">
               <select
                 aria-label="Visualizar como"
                 value={viewAsRole}
@@ -1010,7 +1009,7 @@ function App() {
                 <option value="programador">Programador</option>
                 <option value="revisor">Revisor</option>
               </select>
-            </label>
+            </div>
           )}
           <ProfileMenu
             displayName={
