@@ -3,9 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f2f3ef" />
+    <meta name="theme-color" content="" />
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <title>Your Space — Do planejamento à publicação</title>
+    <script>
+      (() => {
+        const root = document.documentElement;
+        try {
+          const preference = localStorage.getItem('your-space:theme');
+          if (preference === 'dark' || preference === 'light') root.dataset.theme = preference;
+          else if (preference === 'system') root.removeAttribute('data-theme');
+          else root.dataset.theme = 'light';
+        } catch (error) {
+          console.error('Não foi possível ler a preferência de tema salva.', error);
+          root.dataset.theme = 'light';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

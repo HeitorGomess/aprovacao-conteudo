@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import BrandLockup from './BrandLockup';
+import ThemeToggle from './ThemeToggle';
 
 type AuthMode = 'login' | 'signup' | 'forgot-password' | 'update-password';
 
@@ -99,6 +100,7 @@ export default function LoginForm({
 
   return (
     <main className="auth-page">
+      <ThemeToggle className="auth-theme-toggle" />
       <section className="auth-layout" aria-label="Acesso ao workspace de marketing">
         <div className="auth-story">
           <BrandLockup className="auth-brand" variant="light" />

@@ -8,6 +8,7 @@ import LoginForm from './components/LoginForm';
 import ProfileMenu from './components/ProfileMenu';
 import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
+import ThemeToggle from './components/ThemeToggle';
 import UserProfilePage from './components/UserProfilePage';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
 import WorkspaceTeamDashboard from './components/WorkspaceTeamDashboard';
@@ -770,7 +771,7 @@ function App() {
   }
 
   if (authLoading) {
-    return <main className="auth-page"><p className="muted">Verificando acesso…</p></main>;
+    return <main className="auth-page"><ThemeToggle className="auth-theme-toggle" /><p className="muted">Verificando acesso…</p></main>;
   }
   if (passwordRecovery && !demoMode) {
     return (
@@ -805,6 +806,7 @@ function App() {
   ) {
     return (
       <main className="auth-page">
+        <ThemeToggle className="auth-theme-toggle" />
         <section className="auth-card">
           <BrandLockup className="auth-card-brand" />
           <h1>{accessCheckError ? 'Não foi possível verificar o acesso' : 'Verificando permissões…'}</h1>
@@ -821,12 +823,13 @@ function App() {
     );
   }
   if (workspaceLoading) {
-    return <main className="auth-page"><p className="muted">Carregando empresas e permissões…</p></main>;
+    return <main className="auth-page"><ThemeToggle className="auth-theme-toggle" /><p className="muted">Carregando empresas e permissões…</p></main>;
   }
   if (adminView) {
     if (!demoMode && !isSystemAdmin) {
       return (
         <main className="auth-page">
+          <ThemeToggle className="auth-theme-toggle" />
           <section className="auth-card">
             <BrandLockup className="auth-card-brand" />
             <h1>Acesso restrito</h1>
@@ -888,6 +891,7 @@ function App() {
   if (!activeWorkspace && workspaces.length === 0 && !demoMode) {
     return (
       <main className="auth-page">
+        <ThemeToggle className="auth-theme-toggle" />
         <section className="auth-card">
           <BrandLockup className="auth-card-brand" />
           <h1>Não foi possível preparar seu espaço pessoal</h1>
@@ -906,6 +910,7 @@ function App() {
     if (!canManageWorkspace) {
       return (
         <main className="auth-page">
+          <ThemeToggle className="auth-theme-toggle" />
           <section className="auth-card">
             <BrandLockup className="auth-card-brand" />
             <h1>Acesso restrito</h1>
@@ -947,6 +952,7 @@ function App() {
   if (!activeRole) {
     return (
       <main className="auth-page">
+        <ThemeToggle className="auth-theme-toggle" />
         <section className="auth-card">
           <BrandLockup className="auth-card-brand" />
           <p className="eyebrow">ACESSO AO WORKSPACE</p>
@@ -986,6 +992,7 @@ function App() {
           )}
         </div>
         <div className="user-menu">
+          <ThemeToggle />
           {isWorkspaceAdmin && (
             <label className="view-as-selector">
               <span>Visualizar como:</span>

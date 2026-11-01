@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import ProfileMenu from './ProfileMenu';
 import BrandLockup from './BrandLockup';
+import ThemeToggle from './ThemeToggle';
 import DeleteArchivedWorkspaceDialog from './DeleteArchivedWorkspaceDialog';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import {
@@ -272,6 +273,7 @@ export default function WorkspaceTeamDashboard({
           />
         </div>
         <div className="user-menu">
+          <ThemeToggle />
           <ProfileMenu
             displayName={profileName || 'Meu perfil'}
             avatarUrl={avatarUrl}

@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import type { User } from '@supabase/supabase-js';
 import BrandLockup from './BrandLockup';
 import ProfileMenu from './ProfileMenu';
+import ThemeToggle from './ThemeToggle';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import type { WorkspaceSummary } from '../features/content-approval/contentService';
 
@@ -150,6 +151,7 @@ export default function UserProfilePage({
           )}
         </div>
         <div className="user-menu">
+          <ThemeToggle />
           <ProfileMenu
             displayName={displayName}
             avatarUrl={preview || avatarUrl}

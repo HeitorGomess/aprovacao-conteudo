@@ -60,7 +60,13 @@ function resizeImage(file: File): Promise<string> {
         reject(new Error('Não foi possível processar a imagem.'));
         return;
       }
-      context.fillStyle = '#fff';
+      const canvasFill = getComputedStyle(document.documentElement).getPropertyValue('--image-canvas-fill').trim();
+      if (!canvasFill) {
+        URL.revokeObjectURL(url);
+        reject(new Error('A cor de fundo para processar a imagem não está configurada.'));
+        return;
+      }
+      context.fillStyle = canvasFill;
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);

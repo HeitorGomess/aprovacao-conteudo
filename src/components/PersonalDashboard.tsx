@@ -1,5 +1,6 @@
 import BrandLockup from './BrandLockup';
 import ProfileMenu from './ProfileMenu';
+import ThemeToggle from './ThemeToggle';
 
 interface PersonalDashboardProps {
   displayName: string;
@@ -26,6 +27,7 @@ export default function PersonalDashboard({
           <span className="personal-space-label">{spaceName}</span>
         </div>
         <div className="user-menu">
+          <ThemeToggle />
           <ProfileMenu
             displayName={displayName}
             avatarUrl={avatarUrl}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import BrandLockup from './BrandLockup';
+import ThemeToggle from './ThemeToggle';
 import {
   listPanelAccounts,
   setPanelAccountRole,
@@ -115,7 +116,10 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
     <main className="page-shell">
       <header className="topbar">
         <BrandLockup />
-        <button className="button" onClick={onBack} type="button">Voltar ao painel</button>
+        <div className="user-menu">
+          <ThemeToggle />
+          <button className="button" onClick={onBack} type="button">Voltar ao painel</button>
+        </div>
       </header>
 
       {demoMode && (
