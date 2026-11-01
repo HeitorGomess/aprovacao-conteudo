@@ -4,6 +4,7 @@ import AdminDashboard from './components/AdminDashboard';
 import BrandLockup from './components/BrandLockup';
 import ContentCard from './components/ContentCard';
 import ContentForm from './components/ContentForm';
+import DropdownSelect from './components/DropdownSelect';
 import LoginForm from './components/LoginForm';
 import ProfileMenu from './components/ProfileMenu';
 import ReviewCard from './components/ReviewCard';
@@ -994,22 +995,21 @@ function App() {
         <div className="user-menu">
           <ThemeToggle />
           {isWorkspaceAdmin && (
-            <div className="view-as-selector">
-              <select
-                aria-label="Visualizar como"
-                value={viewAsRole}
-                onChange={(event) => {
-                  const selectedRole = event.target.value;
-                  if (selectedRole === 'administrador' || selectedRole === 'programador' || selectedRole === 'revisor') {
-                    changeViewAsRole(selectedRole);
-                  }
-                }}
-              >
-                <option value="administrador">Administrador</option>
-                <option value="programador">Programador</option>
-                <option value="revisor">Revisor</option>
-              </select>
-            </div>
+            <DropdownSelect
+              ariaLabel="Visualizar como"
+              className="role-header-dropdown"
+              value={viewAsRole}
+              onChange={(selectedRole) => {
+                if (selectedRole === 'administrador' || selectedRole === 'programador' || selectedRole === 'revisor') {
+                  changeViewAsRole(selectedRole);
+                }
+              }}
+              options={[
+                { value: 'administrador', label: 'Administrador' },
+                { value: 'programador', label: 'Programador' },
+                { value: 'revisor', label: 'Revisor' },
+              ]}
+            />
           )}
           <ProfileMenu
             displayName={

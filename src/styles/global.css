@@ -126,17 +126,25 @@ a:hover { text-decoration: underline; }
 .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
 .user-menu { gap: 12px; color: var(--muted); font-size: 13px; }
 .user-menu span { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.view-as-selector { position: relative; display: flex; align-items: center; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
-.view-as-selector::after { position: absolute; top: 50%; right: 12px; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); content: ""; pointer-events: none; transform: translateY(-70%) rotate(45deg); }
-.view-as-selector select { min-height: 38px; max-width: 150px; padding: 6px 32px 6px 12px; appearance: none; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; }
+.header-dropdown { position: relative; min-width: 0; }
+.header-dropdown-trigger { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 600; text-align: left; }
+.header-dropdown-trigger:hover, .header-dropdown-trigger[aria-expanded="true"] { border-color: var(--hover-line); background: var(--surface-soft); }
+.header-dropdown-trigger > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-dropdown-chevron { width: 7px; height: 7px; flex: none; margin: -3px 1px 0 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); }
+.workspace-header-dropdown { max-width: 220px; flex: 1 1 180px; }
+.workspace-header-dropdown .header-dropdown-trigger { width: 100%; min-height: 38px; border-radius: 8px; }
+.role-header-dropdown .header-dropdown-trigger { min-width: 136px; border-radius: 999px; }
+.header-dropdown-menu { position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; display: grid; width: max-content; min-width: 100%; max-width: min(300px, calc(100vw - 32px)); gap: 3px; padding: 7px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-menu); }
+.header-dropdown-menu > button { display: flex; min-width: 0; min-height: 38px; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); font-size: 13px; text-align: left; white-space: nowrap; }
+.header-dropdown-menu > button:hover, .header-dropdown-menu > button[aria-checked="true"] { background: var(--surface-soft); }
+.header-dropdown-menu > button[aria-checked="true"] { color: var(--accent); font-weight: 600; }
+.header-dropdown-menu > button:focus-visible { outline-offset: -2px; }
+.header-dropdown-check { color: var(--accent); }
 .review-mode-banner { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--surface-subtle); font-size: 13px; }
 .review-mode-banner button { padding: 0; border: 0; color: var(--accent); background: transparent; font-weight: 600; }
 .review-mode-banner button:hover { text-decoration: underline; }
 .workspace-header-main, .workspace-admin-brand { display: flex; min-width: 0; align-items: center; gap: 22px; }
 .workspace-controls { display: flex; min-width: 0; align-items: center; flex-wrap: nowrap; gap: 8px; }
-.workspace-controls > label { position: relative; display: flex; min-width: 0; }
-.workspace-controls > label::after { position: absolute; top: 50%; right: 14px; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); content: ""; pointer-events: none; transform: translateY(-70%) rotate(45deg); }
-.workspace-select { max-width: 220px; min-height: 38px; padding: 7px 34px 7px 10px; appearance: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-weight: 600; }
 .workspace-create-button { white-space: nowrap; }
 .workspace-modal-backdrop { z-index: 20; }
 .workspace-modal { width: min(100% - 32px, 480px); overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-workspace); }
@@ -490,7 +498,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .user-menu { width: 100%; justify-content: space-between; }
   .workspace-header-main, .workspace-admin-brand, .workspace-controls { width: 100%; }
   .workspace-controls { flex-wrap: wrap; gap: 7px; }
-  .workspace-select { min-width: 0; max-width: none; flex: 1; }
+  .workspace-header-dropdown { min-width: 0; max-width: none; flex: 1; }
   .workspace-create-button { flex: 1; }
   .workspace-admin-topbar { align-items: flex-start; }
   .workspace-member-form { grid-template-columns: 1fr; }

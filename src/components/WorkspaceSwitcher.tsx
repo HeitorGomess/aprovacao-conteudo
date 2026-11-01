@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import BrandLockup from './BrandLockup';
 import DeleteArchivedWorkspaceDialog from './DeleteArchivedWorkspaceDialog';
+import DropdownSelect from './DropdownSelect';
 import type { WorkspaceSummary } from '../features/content-approval/contentService';
 
 function getErrorMessage(reason: unknown): string {
@@ -53,21 +54,16 @@ export default function WorkspaceSwitcher({
   return (
     <>
       <div className="workspace-controls">
-        <label>
-          <span className="sr-only">Empresa ativa</span>
-          <select
-            className="workspace-select"
-            value={activeWorkspaceId}
-            onChange={(event) => onChange(event.target.value)}
-            aria-label="Trocar empresa"
-          >
-            {workspaces.filter((workspace) => !workspace.archivedAt).map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}{workspace.isPersonal ? ' · Pessoal' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
+        <DropdownSelect
+          ariaLabel="Trocar empresa"
+          className="workspace-header-dropdown"
+          value={activeWorkspaceId}
+          onChange={onChange}
+          options={workspaces.filter((workspace) => !workspace.archivedAt).map((workspace) => ({
+            value: workspace.id,
+            label: `${workspace.name}${workspace.isPersonal ? ' · Pessoal' : ''}`,
+          }))}
+        />
         {canManage && onManageTeam && (
           <button className="button" onClick={onManageTeam} type="button">Gerenciar empresa</button>
         )}
