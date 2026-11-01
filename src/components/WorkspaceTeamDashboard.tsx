@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import AccountAvatar from './AccountAvatar';
 import ProfileMenu from './ProfileMenu';
 import BrandLockup from './BrandLockup';
 import ThemeToggle from './ThemeToggle';
@@ -452,7 +453,7 @@ export default function WorkspaceTeamDashboard({
             {visibleMembers.map((member) => (
               <div className="account-row" key={member.userId}>
                 <div className="account-identity">
-                  <span className="account-avatar" aria-hidden="true">{member.email.slice(0, 1).toUpperCase()}</span>
+                  <AccountAvatar email={member.email} avatarUrl={member.avatarUrl} />
                   <span>{member.email}{member.isOwner ? ' · Proprietário' : ''}</span>
                 </div>
                 <div className="account-role">

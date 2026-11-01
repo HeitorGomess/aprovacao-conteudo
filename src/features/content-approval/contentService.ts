@@ -10,6 +10,7 @@ export interface PanelAccount {
   email: string;
   role: AccountRole;
   isAdmin: boolean;
+  avatarUrl?: string;
 }
 
 export interface EditorAccess {
@@ -35,6 +36,7 @@ export interface WorkspaceMember {
   email: string;
   role: WorkspaceRole;
   isOwner: boolean;
+  avatarUrl?: string;
 }
 
 export const supabase = createClient(
@@ -240,11 +242,13 @@ export async function listWorkspaceMembers(workspaceId: string): Promise<Workspa
     email: string;
     role: WorkspaceRole;
     is_owner: boolean;
+    avatar_url?: string | null;
   }) => ({
     userId: member.user_id,
     email: member.email,
     role: member.role,
     isOwner: member.is_owner,
+    avatarUrl: member.avatar_url || '',
   }));
 }
 
@@ -277,11 +281,18 @@ export async function setWorkspaceMemberRole(
 export async function listPanelAccounts(): Promise<PanelAccount[]> {
   const { data, error } = await supabase.rpc('list_panel_accounts');
   if (error) throw error;
-  return (data || []).map((account: { user_id: string; email: string; role: AccountRole; is_admin: boolean }) => ({
+  return (data || []).map((account: {
+    user_id: string;
+    email: string;
+    role: AccountRole;
+    is_admin: boolean;
+    avatar_url?: string | null;
+  }) => ({
     userId: account.user_id,
     email: account.email,
     role: account.role,
     isAdmin: account.is_admin,
+    avatarUrl: account.avatar_url || '',
   }));
 }
 

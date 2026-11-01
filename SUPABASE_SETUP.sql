@@ -870,7 +870,7 @@ $$;
 
 drop function if exists public.list_workspace_members(uuid);
 create or replace function public.list_workspace_members(p_workspace_id uuid)
-returns table (user_id uuid, email text, role text, is_owner boolean)
+returns table (user_id uuid, email text, role text, is_owner boolean, avatar_url text)
 language plpgsql
 security definer
 set search_path = ''
@@ -893,7 +893,8 @@ begin
     members.user_id,
     coalesce(users.email, '')::text,
     members.role::text,
-    (workspaces.owner_id = members.user_id)
+    (workspaces.owner_id = members.user_id),
+    coalesce(users.raw_user_meta_data ->> 'avatar_url', '')::text
   from public.workspace_members as members
   join auth.users as users on users.id = members.user_id
   join public.workspaces on workspaces.id = members.workspace_id
@@ -1020,7 +1021,8 @@ returns table (
   user_id uuid,
   email text,
   role text,
-  is_admin boolean
+  is_admin boolean,
+  avatar_url text
 )
 language plpgsql
 security definer
@@ -1042,7 +1044,8 @@ begin
       when admins.user_id is not null or legacy_members.role = 'administrador' then 'administrador'
       else coalesce(legacy_members.role, 'sem_acesso')
     end)::text,
-    (admins.user_id is not null or legacy_members.role = 'administrador')::boolean
+    (admins.user_id is not null or legacy_members.role = 'administrador')::boolean,
+    coalesce(users.raw_user_meta_data ->> 'avatar_url', '')::text
   from auth.users as users
   left join public.panel_admins as admins on admins.user_id = users.id
   left join public.workspaces as legacy_workspace on legacy_workspace.slug = 'your-space'

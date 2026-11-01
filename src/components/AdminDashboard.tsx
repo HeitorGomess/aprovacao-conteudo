@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import AccountAvatar from './AccountAvatar';
 import BrandLockup from './BrandLockup';
 import ThemeToggle from './ThemeToggle';
 import {
@@ -203,7 +204,7 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
               {visibleAccounts.map((account) => (
                 <div className="account-row" key={account.userId}>
                   <div className="account-identity">
-                    <span className="account-avatar" aria-hidden="true">{account.email.slice(0, 1).toUpperCase()}</span>
+                    <AccountAvatar email={account.email} avatarUrl={account.avatarUrl} />
                     <span>{account.email}</span>
                   </div>
                   <div className="account-role">
