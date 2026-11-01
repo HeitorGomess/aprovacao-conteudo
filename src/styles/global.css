@@ -130,6 +130,8 @@ a:hover { text-decoration: underline; }
 .header-dropdown-trigger { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 600; text-align: left; }
 .header-dropdown-trigger:hover, .header-dropdown-trigger[aria-expanded="true"] { border-color: var(--hover-line); background: var(--surface-soft); }
 .header-dropdown-trigger > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-dropdown-option-label { display: flex; min-width: 0; align-items: center; gap: 9px; }
+.header-dropdown-option-label > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .header-dropdown-chevron { width: 7px; height: 7px; flex: none; margin: -3px 1px 0 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); }
 .workspace-header-dropdown { max-width: 220px; flex: 1 1 180px; }
 .workspace-header-dropdown .header-dropdown-trigger { width: 100%; min-height: 38px; border-radius: 8px; }
@@ -144,6 +146,10 @@ a:hover { text-decoration: underline; }
 .header-dropdown-menu > button[aria-checked="true"] { color: var(--accent); font-weight: 600; }
 .header-dropdown-menu > button:focus-visible { outline-offset: -2px; }
 .header-dropdown-check { color: var(--accent); }
+.workspace-avatar { position: relative; display: grid; flex: none; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 50%; background: var(--surface-soft); color: var(--accent); font-size: 10px; font-weight: 700; }
+.workspace-avatar-small { width: 28px; height: 28px; }
+.workspace-avatar-large { width: 72px; height: 72px; font-size: 18px; }
+.workspace-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; border: 1px solid var(--line); border-radius: inherit; object-fit: cover; }
 .review-mode-banner { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--surface-subtle); font-size: 13px; }
 .review-mode-banner button { padding: 0; border: 0; color: var(--accent); background: transparent; font-weight: 600; }
 .review-mode-banner button:hover { text-decoration: underline; }
@@ -227,6 +233,11 @@ a:hover { text-decoration: underline; }
 .workspace-rename-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
 .workspace-rename-form label { display: grid; min-width: 240px; flex: 1; gap: 6px; font-size: 13px; font-weight: 600; }
 .workspace-rename-form input { width: 100%; min-height: 40px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.workspace-avatar-form { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
+.workspace-avatar-form label { display: grid; min-width: 220px; flex: 1; gap: 6px; font-size: 13px; font-weight: 600; }
+.workspace-avatar-form input[type="file"] { width: 100%; min-height: 40px; color: var(--ink); font: inherit; }
+.workspace-avatar-form label .muted { font-size: 12px; font-weight: 400; }
+.workspace-avatar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .workspace-settings-section .workspace-archived-list { display: grid; gap: 10px; }
 .workspace-settings-section h4 { margin: 0; font-size: 13px; }
 .workspace-settings-section .workspace-success { margin: 0; }

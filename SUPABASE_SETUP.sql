@@ -48,6 +48,9 @@ alter table public.workspaces
 alter table public.workspaces
   add column if not exists archived_at timestamptz;
 
+alter table public.workspaces
+  add column if not exists avatar_path text;
+
 create unique index if not exists workspaces_personal_owner_unique_idx
   on public.workspaces (owner_id)
   where is_personal;
@@ -204,6 +207,132 @@ create policy profile_avatars_owner_delete
   using (
     bucket_id = 'profile-avatars'
     and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'workspace-avatars',
+  'workspace-avatars',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists workspace_avatars_public_read on storage.objects;
+create policy workspace_avatars_public_read
+  on storage.objects
+  for select
+  to public
+  using (bucket_id = 'workspace-avatars');
+
+drop policy if exists workspace_avatars_admin_insert on storage.objects;
+create policy workspace_avatars_admin_insert
+  on storage.objects
+  for insert
+  to authenticated
+  with check (
+    bucket_id = 'workspace-avatars'
+    and exists (
+      select 1
+      from public.workspaces
+      where workspaces.id::text = (storage.foldername(name))[1]
+        and (
+          exists (
+            select 1
+            from public.workspace_members as members
+            where members.workspace_id = workspaces.id
+              and members.user_id = (select auth.uid())
+              and members.role = 'administrador'
+          )
+          or exists (
+            select 1
+            from public.panel_admins as admins
+            where admins.user_id = (select auth.uid())
+          )
+        )
+    )
+  );
+
+drop policy if exists workspace_avatars_admin_update on storage.objects;
+create policy workspace_avatars_admin_update
+  on storage.objects
+  for update
+  to authenticated
+  using (
+    bucket_id = 'workspace-avatars'
+    and exists (
+      select 1
+      from public.workspaces
+      where workspaces.id::text = (storage.foldername(name))[1]
+        and (
+          exists (
+            select 1
+            from public.workspace_members as members
+            where members.workspace_id = workspaces.id
+              and members.user_id = (select auth.uid())
+              and members.role = 'administrador'
+          )
+          or exists (
+            select 1
+            from public.panel_admins as admins
+            where admins.user_id = (select auth.uid())
+          )
+        )
+    )
+  )
+  with check (
+    bucket_id = 'workspace-avatars'
+    and exists (
+      select 1
+      from public.workspaces
+      where workspaces.id::text = (storage.foldername(name))[1]
+        and (
+          exists (
+            select 1
+            from public.workspace_members as members
+            where members.workspace_id = workspaces.id
+              and members.user_id = (select auth.uid())
+              and members.role = 'administrador'
+          )
+          or exists (
+            select 1
+            from public.panel_admins as admins
+            where admins.user_id = (select auth.uid())
+          )
+        )
+    )
+  );
+
+drop policy if exists workspace_avatars_admin_delete on storage.objects;
+create policy workspace_avatars_admin_delete
+  on storage.objects
+  for delete
+  to authenticated
+  using (
+    bucket_id = 'workspace-avatars'
+    and exists (
+      select 1
+      from public.workspaces
+      where workspaces.id::text = (storage.foldername(name))[1]
+        and (
+          exists (
+            select 1
+            from public.workspace_members as members
+            where members.workspace_id = workspaces.id
+              and members.user_id = (select auth.uid())
+              and members.role = 'administrador'
+          )
+          or exists (
+            select 1
+            from public.panel_admins as admins
+            where admins.user_id = (select auth.uid())
+          )
+        )
+    )
   );
 
 create or replace function public.sync_primary_admin()
@@ -592,7 +721,8 @@ returns table (
   role text,
   is_owner boolean,
   is_personal boolean,
-  archived_at timestamptz
+  archived_at timestamptz,
+  avatar_path text
 )
 language sql
 security definer
@@ -605,7 +735,8 @@ as $$
     coalesce(members.role, 'administrador')::text,
     (workspaces.owner_id = (select auth.uid())),
     workspaces.is_personal,
-    workspaces.archived_at
+    workspaces.archived_at,
+    workspaces.avatar_path
   from public.workspaces
   left join public.workspace_members as members
     on members.workspace_id = workspaces.id
@@ -670,6 +801,55 @@ begin
   if not found then
     raise exception 'Empresa não encontrada ou arquivada.';
   end if;
+end;
+$$;
+
+drop function if exists public.set_workspace_avatar(uuid, text);
+create function public.set_workspace_avatar(p_workspace_id uuid, p_avatar_path text)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  previous_avatar_path text;
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Entre na sua conta para alterar a foto da empresa.';
+  end if;
+
+  if p_avatar_path is not null
+    and p_avatar_path !~ ('^' || p_workspace_id::text || '/[A-Za-z0-9._-]+$') then
+    raise exception 'O caminho da foto da empresa é inválido.';
+  end if;
+
+  if not exists (
+    select 1 from public.workspace_members as members
+    where members.workspace_id = p_workspace_id
+      and members.user_id = (select auth.uid())
+      and members.role = 'administrador'
+  ) and not exists (
+    select 1 from public.panel_admins as admins
+    where admins.user_id = (select auth.uid())
+  ) then
+    raise exception 'Somente administradores podem alterar a foto desta empresa.';
+  end if;
+
+  select workspaces.avatar_path
+  into previous_avatar_path
+  from public.workspaces
+  where workspaces.id = p_workspace_id
+    and workspaces.archived_at is null
+  for update;
+  if not found then
+    raise exception 'Empresa não encontrada ou arquivada.';
+  end if;
+
+  update public.workspaces
+  set avatar_path = p_avatar_path
+  where id = p_workspace_id;
+
+  return previous_avatar_path;
 end;
 $$;
 
@@ -834,7 +1014,8 @@ returns table (
   workspace_name text,
   role text,
   is_admin boolean,
-  is_owner boolean
+  is_owner boolean,
+  avatar_path text
 )
 language plpgsql
 security definer
@@ -851,7 +1032,8 @@ begin
     workspaces.name,
     coalesce(members.role, case when admins.user_id is not null then 'administrador' end)::text,
     (coalesce(members.role = 'administrador', false) or admins.user_id is not null),
-    (workspaces.owner_id = (select auth.uid()))
+    (workspaces.owner_id = (select auth.uid())),
+    workspaces.avatar_path
   from public.workspaces
   left join public.workspace_members as members
     on members.workspace_id = workspaces.id
@@ -1284,6 +1466,7 @@ revoke all on function public.create_workspace(text) from public;
 revoke all on function public.ensure_my_personal_workspace() from public;
 revoke all on function public.list_user_workspaces() from public;
 revoke all on function public.rename_workspace(uuid, text) from public;
+revoke all on function public.set_workspace_avatar(uuid, text) from public;
 revoke all on function public.archive_workspace(uuid) from public;
 revoke all on function public.restore_workspace(uuid) from public;
 revoke all on function public.delete_archived_workspace(uuid) from public;
@@ -1301,6 +1484,7 @@ grant execute on function public.create_workspace(text) to authenticated;
 grant execute on function public.ensure_my_personal_workspace() to authenticated;
 grant execute on function public.list_user_workspaces() to authenticated;
 grant execute on function public.rename_workspace(uuid, text) to authenticated;
+grant execute on function public.set_workspace_avatar(uuid, text) to authenticated;
 grant execute on function public.archive_workspace(uuid) to authenticated;
 grant execute on function public.restore_workspace(uuid) to authenticated;
 grant execute on function public.delete_archived_workspace(uuid) to authenticated;

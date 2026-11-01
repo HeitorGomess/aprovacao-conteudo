@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import AccountAvatar from './AccountAvatar';
+import WorkspaceAvatar from './WorkspaceAvatar';
 import ProfileMenu from './ProfileMenu';
 import BrandLockup from './BrandLockup';
 import ThemeToggle from './ThemeToggle';
@@ -11,6 +12,7 @@ import {
   setWorkspaceMemberRole,
   type WorkspaceMember,
   type WorkspaceRole,
+  type WorkspaceAvatarUpdate,
   type WorkspaceSummary,
 } from '../features/content-approval/contentService';
 
@@ -28,6 +30,7 @@ interface WorkspaceTeamDashboardProps {
   onChangeWorkspace: (workspaceId: string) => void;
   onCreateWorkspace: (name: string) => Promise<void>;
   onRenameWorkspace: (workspaceId: string, name: string) => Promise<void>;
+  onSaveWorkspaceAvatar: (workspaceId: string, avatarFile: File | null) => Promise<WorkspaceAvatarUpdate>;
   onArchiveWorkspace: (workspaceId: string) => Promise<void>;
   onRestoreWorkspace: (workspaceId: string) => Promise<void>;
   onDeleteWorkspace: (workspaceId: string) => Promise<void>;
@@ -86,6 +89,7 @@ export default function WorkspaceTeamDashboard({
   onChangeWorkspace,
   onCreateWorkspace,
   onRenameWorkspace,
+  onSaveWorkspaceAvatar,
   onArchiveWorkspace,
   onRestoreWorkspace,
   onDeleteWorkspace,
@@ -109,6 +113,10 @@ export default function WorkspaceTeamDashboard({
   const [notice, setNotice] = useState('');
   const [workspaceNameInput, setWorkspaceNameInput] = useState(workspaceName);
   const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const [workspaceAvatarFile, setWorkspaceAvatarFile] = useState<File | null>(null);
+  const [workspaceAvatarPreview, setWorkspaceAvatarPreview] = useState('');
+  const [removeWorkspaceAvatar, setRemoveWorkspaceAvatar] = useState(false);
+  const [savingWorkspaceAvatar, setSavingWorkspaceAvatar] = useState(false);
   const [workspaceToDelete, setWorkspaceToDelete] = useState<WorkspaceSummary | null>(null);
   const [deletingWorkspaceId, setDeletingWorkspaceId] = useState('');
   const [deleteError, setDeleteError] = useState('');
@@ -116,6 +124,17 @@ export default function WorkspaceTeamDashboard({
   useEffect(() => {
     setWorkspaceNameInput(workspaceName);
   }, [workspaceName]);
+
+  useEffect(() => {
+    if (!workspaceAvatarPreview) return;
+    return () => URL.revokeObjectURL(workspaceAvatarPreview);
+  }, [workspaceAvatarPreview]);
+
+  useEffect(() => {
+    setWorkspaceAvatarFile(null);
+    setWorkspaceAvatarPreview('');
+    setRemoveWorkspaceAvatar(false);
+  }, [workspaceId]);
 
   const refreshMembers = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -213,6 +232,43 @@ export default function WorkspaceTeamDashboard({
       setError(`Não foi possível renomear a empresa: ${getErrorMessage(reason)}`);
     } finally {
       setSavingWorkspace(false);
+    }
+  }
+
+  function chooseWorkspaceAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = '';
+    setError('');
+    setNotice('');
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      setError('Escolha uma imagem JPG, PNG, GIF ou WebP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('A imagem deve ter no máximo 5 MB.');
+      return;
+    }
+    setWorkspaceAvatarFile(file);
+    setWorkspaceAvatarPreview(URL.createObjectURL(file));
+    setRemoveWorkspaceAvatar(false);
+  }
+
+  async function saveCurrentWorkspaceAvatar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingWorkspaceAvatar(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await onSaveWorkspaceAvatar(workspaceId, removeWorkspaceAvatar ? null : workspaceAvatarFile);
+      setWorkspaceAvatarFile(null);
+      setWorkspaceAvatarPreview('');
+      setRemoveWorkspaceAvatar(false);
+      setNotice(result.warning || 'A foto da empresa foi atualizada.');
+    } catch (reason) {
+      setError(`Não foi possível atualizar a foto da empresa: ${getErrorMessage(reason)}`);
+    } finally {
+      setSavingWorkspaceAvatar(false);
     }
   }
 
@@ -357,6 +413,45 @@ export default function WorkspaceTeamDashboard({
                 Arquivar empresa
               </button>
             )}
+          </form>
+
+          <form className="workspace-avatar-form" onSubmit={(event) => void saveCurrentWorkspaceAvatar(event)}>
+            <WorkspaceAvatar
+              url={workspaceAvatarPreview || activeWorkspace?.avatarUrl}
+              fallback={workspaceName.trim().slice(0, 2).toLocaleUpperCase('pt-BR') || 'ES'}
+              size="large"
+            />
+            <label>
+              {workspaceIsPersonal ? 'Foto do espaço' : 'Foto da empresa'}
+              <input
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                disabled={savingWorkspaceAvatar}
+                onChange={chooseWorkspaceAvatar}
+                type="file"
+              />
+              <span className="muted">JPG, PNG, GIF ou WebP, até 5 MB.</span>
+            </label>
+            <div className="workspace-avatar-actions">
+              <button
+                className="button button-primary"
+                disabled={savingWorkspaceAvatar || (!workspaceAvatarFile && !removeWorkspaceAvatar)}
+                type="submit"
+              >
+                {savingWorkspaceAvatar ? 'Salvando…' : 'Salvar foto'}
+              </button>
+              <button
+                className="button"
+                disabled={savingWorkspaceAvatar || (!workspaceAvatarFile && !activeWorkspace?.avatarUrl)}
+                onClick={() => {
+                  setWorkspaceAvatarFile(null);
+                  setWorkspaceAvatarPreview('');
+                  setRemoveWorkspaceAvatar(Boolean(activeWorkspace?.avatarUrl));
+                }}
+                type="button"
+              >
+                Remover foto
+              </button>
+            </div>
           </form>
 
           {workspaces.some((workspace) => workspace.archivedAt) && (

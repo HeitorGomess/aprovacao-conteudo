@@ -12,6 +12,10 @@ function getErrorMessage(reason: unknown): string {
   return 'Ocorreu um erro inesperado.';
 }
 
+function getWorkspaceInitials(name: string): string {
+  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toLocaleUpperCase('pt-BR');
+}
+
 interface WorkspaceSwitcherProps {
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
@@ -62,6 +66,8 @@ export default function WorkspaceSwitcher({
           options={workspaces.filter((workspace) => !workspace.archivedAt).map((workspace) => ({
             value: workspace.id,
             label: workspace.name,
+            avatarUrl: workspace.avatarUrl,
+            avatarFallback: getWorkspaceInitials(workspace.name),
           }))}
         />
         {canManage && onManageTeam && (

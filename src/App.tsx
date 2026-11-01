@@ -27,12 +27,14 @@ import {
   saveContents,
   restoreWorkspace,
   saveUserProfile,
+  saveWorkspaceAvatar,
   resetReviewComments,
   submitReviewDecision,
   subscribeToContents,
   supabase,
   verifyPanelAdmin,
   type EditorRole,
+  type WorkspaceAvatarUpdate,
   type WorkspaceRole,
   type WorkspaceSummary,
 } from './features/content-approval/contentService';
@@ -79,6 +81,18 @@ function getErrorMessage(error: unknown): string {
     return [error.message, details, hint].filter(Boolean).join(' ');
   }
   return 'Ocorreu um erro inesperado.';
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Não foi possível ler a imagem selecionada.'));
+    reader.onload = () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('O arquivo selecionado não contém uma imagem válida.'));
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 function localMonthKey(date: Date): string {
@@ -670,6 +684,22 @@ function App() {
     );
   }
 
+  async function handleSaveWorkspaceAvatar(
+    workspaceId: string,
+    avatarFile: File | null,
+  ): Promise<WorkspaceAvatarUpdate> {
+    const result = demoMode
+      ? { avatarUrl: avatarFile ? await readFileAsDataUrl(avatarFile) : '' }
+      : await saveWorkspaceAvatar(workspaceId, avatarFile);
+    setWorkspaces((current) => current.map((workspace) =>
+      workspace.id === workspaceId ? { ...workspace, avatarUrl: result.avatarUrl } : workspace,
+    ));
+    setActiveWorkspace((current) =>
+      current?.id === workspaceId ? { ...current, avatarUrl: result.avatarUrl } : current,
+    );
+    return result;
+  }
+
   async function handleArchiveWorkspace(workspaceId: string): Promise<void> {
     if (!demoMode) await archiveWorkspace(workspaceId);
     const archivedAt = new Date().toISOString();
@@ -939,6 +969,7 @@ function App() {
         onChangeWorkspace={handleWorkspaceChange}
         onCreateWorkspace={handleCreateWorkspace}
         onRenameWorkspace={handleRenameWorkspace}
+        onSaveWorkspaceAvatar={handleSaveWorkspaceAvatar}
         onArchiveWorkspace={handleArchiveWorkspace}
         onRestoreWorkspace={handleRestoreWorkspace}
         onDeleteWorkspace={handleDeleteArchivedWorkspace}

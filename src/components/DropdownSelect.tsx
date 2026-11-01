@@ -1,9 +1,12 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import WorkspaceAvatar from './WorkspaceAvatar';
 
 export interface DropdownOption {
   value: string;
   label: string;
+  avatarUrl?: string;
+  avatarFallback?: string;
 }
 
 interface DropdownSelectProps {
@@ -131,7 +134,12 @@ export default function DropdownSelect({
           onClick={() => chooseOption(option.value)}
           type="button"
         >
-          <span>{option.label}</span>
+          <span className="header-dropdown-option-label">
+            {option.avatarFallback && (
+              <WorkspaceAvatar url={option.avatarUrl} fallback={option.avatarFallback} />
+            )}
+            <span>{option.label}</span>
+          </span>
           {option.value === value && <span className="header-dropdown-check" aria-hidden="true">✓</span>}
         </button>
       ))}
@@ -150,7 +158,15 @@ export default function DropdownSelect({
         onKeyDown={handleTriggerKeyDown}
         type="button"
       >
-        <span>{selectedOption?.label ?? ''}</span>
+        <span className="header-dropdown-option-label">
+          {selectedOption?.avatarFallback && (
+            <WorkspaceAvatar
+              url={selectedOption.avatarUrl}
+              fallback={selectedOption.avatarFallback}
+            />
+          )}
+          <span>{selectedOption?.label ?? ''}</span>
+        </span>
         <span className="header-dropdown-chevron" aria-hidden="true" />
       </button>
       {variant === 'field' && menuPosition ? createPortal(menu, document.body) : menu}

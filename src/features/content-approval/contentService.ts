@@ -19,6 +19,7 @@ export interface EditorAccess {
   isOwner: boolean;
   workspaceId: string;
   workspaceName: string;
+  avatarUrl: string;
 }
 
 export interface WorkspaceSummary {
@@ -29,6 +30,12 @@ export interface WorkspaceSummary {
   isOwner: boolean;
   isPersonal: boolean;
   archivedAt: string | null;
+  avatarUrl?: string;
+}
+
+export interface WorkspaceAvatarUpdate {
+  avatarUrl: string;
+  warning?: string;
 }
 
 export interface WorkspaceMember {
@@ -43,6 +50,12 @@ export const supabase = createClient(
   'https://rinsachmljzzzvcgqowi.supabase.co',
   'sb_publishable_uRKFyCDMc0n3WIkSrrkNxg_YR1wp5GA',
 );
+
+function getWorkspaceAvatarUrl(path: string | null | undefined): string {
+  if (!path) return '';
+  const { data } = supabase.storage.from('workspace-avatars').getPublicUrl(path);
+  return `${data.publicUrl}?v=${Date.now()}`;
+}
 
 interface ContentRow {
   id: string;
@@ -71,6 +84,7 @@ export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
     is_owner: boolean;
     is_personal: boolean;
     archived_at: string | null;
+    avatar_path: string | null;
   }) => ({
     id: item.workspace_id,
     name: item.workspace_name,
@@ -79,6 +93,7 @@ export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
     isOwner: item.is_owner,
     isPersonal: item.is_personal === true,
     archivedAt: item.archived_at,
+    avatarUrl: getWorkspaceAvatarUrl(item.avatar_path),
   }));
   return workspaces.filter((workspace) => !workspace.isPersonal || workspace.isOwner);
 }
@@ -143,6 +158,63 @@ export async function renameWorkspace(workspaceId: string, name: string): Promis
     p_name: name.trim(),
   });
   if (error) throw error;
+}
+
+export async function saveWorkspaceAvatar(
+  workspaceId: string,
+  avatarFile: File | null,
+): Promise<WorkspaceAvatarUpdate> {
+  let avatarPath: string | null = null;
+  if (avatarFile) {
+    const extensionByType: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    };
+    const extension = extensionByType[avatarFile.type];
+    if (!extension) throw new Error('Escolha uma imagem JPG, PNG, GIF ou WebP.');
+    if (avatarFile.size > 5 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 5 MB.');
+
+    avatarPath = `${workspaceId}/${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from('workspace-avatars')
+      .upload(avatarPath, avatarFile, {
+        cacheControl: '3600',
+        contentType: avatarFile.type,
+        upsert: false,
+      });
+    if (uploadError) throw new Error(`Não foi possível enviar a foto da empresa: ${uploadError.message}`);
+  }
+
+  const { data: previousAvatarPath, error: updateError } = await supabase.rpc('set_workspace_avatar', {
+    p_workspace_id: workspaceId,
+    p_avatar_path: avatarPath,
+  });
+  if (updateError) {
+    if (avatarPath) {
+      const { error: cleanupError } = await supabase.storage.from('workspace-avatars').remove([avatarPath]);
+      if (cleanupError) {
+        throw new Error(`Não foi possível salvar a foto da empresa: ${updateError.message}. Também não foi possível limpar o arquivo enviado: ${cleanupError.message}`);
+      }
+    }
+    if (updateError.code === 'PGRST202' || updateError.message.includes('Could not find the function')) {
+      throw new Error('A configuração das fotos de empresa ainda não está disponível. Execute novamente o arquivo completo SUPABASE_SETUP.sql no SQL Editor do Supabase.');
+    }
+    throw new Error(`Não foi possível salvar a foto da empresa: ${updateError.message}`);
+  }
+
+  let warning: string | undefined;
+  if (typeof previousAvatarPath === 'string' && previousAvatarPath && previousAvatarPath !== avatarPath) {
+    const { error: cleanupError } = await supabase.storage
+      .from('workspace-avatars')
+      .remove([previousAvatarPath]);
+    if (cleanupError) {
+      warning = `A foto foi atualizada, mas não foi possível limpar o arquivo anterior: ${cleanupError.message}`;
+    }
+  }
+
+  return { avatarUrl: getWorkspaceAvatarUrl(avatarPath), warning };
 }
 
 export async function archiveWorkspace(workspaceId: string): Promise<void> {
@@ -219,6 +291,7 @@ export async function verifyWorkspaceAccess(workspaceSlug: string): Promise<Edit
     isOwner: access.is_owner,
     workspaceId: access.workspace_id,
     workspaceName: access.workspace_name,
+    avatarUrl: getWorkspaceAvatarUrl(access.avatar_path),
   };
 }
 
