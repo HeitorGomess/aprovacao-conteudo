@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import BrandLockup from './BrandLockup';
 import DeleteArchivedWorkspaceDialog from './DeleteArchivedWorkspaceDialog';
 import type { WorkspaceSummary } from '../features/content-approval/contentService';
@@ -15,7 +15,7 @@ interface WorkspaceSwitcherProps {
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
   canManage: boolean;
-  openCreateRequest?: number;
+  canCreateWorkspace?: boolean;
   onChange: (workspaceId: string) => void;
   onCreateWorkspace: (name: string) => Promise<void>;
   onManageTeam?: () => void;
@@ -25,7 +25,7 @@ export default function WorkspaceSwitcher({
   workspaces,
   activeWorkspaceId,
   canManage,
-  openCreateRequest = 0,
+  canCreateWorkspace = true,
   onChange,
   onCreateWorkspace,
   onManageTeam,
@@ -34,13 +34,6 @@ export default function WorkspaceSwitcher({
   const [name, setName] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (openCreateRequest > 0) {
-      setError('');
-      setCreateOpen(true);
-    }
-  }, [openCreateRequest]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,15 +69,17 @@ export default function WorkspaceSwitcher({
         {canManage && onManageTeam && (
           <button className="button" onClick={onManageTeam} type="button">Gerenciar empresa</button>
         )}
-        <button className="button button-primary workspace-create-button" onClick={() => {
-          setError('');
-          setCreateOpen(true);
-        }} type="button">
-          + Nova empresa
-        </button>
+        {canCreateWorkspace && (
+          <button className="button button-primary workspace-create-button" onClick={() => {
+            setError('');
+            setCreateOpen(true);
+          }} type="button">
+            + Nova empresa
+          </button>
+        )}
       </div>
 
-      {createOpen && (
+      {createOpen && canCreateWorkspace && (
         <div className="modal-backdrop workspace-modal-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !pending) setCreateOpen(false);
         }}>

@@ -3,6 +3,7 @@ import type { Content, ContentFormData, ContentStatus, ReviewComment } from '../
 
 interface ContentFormProps {
   initial?: Content | null;
+  initialDate?: string;
   isAdmin: boolean;
   onClose: () => void;
   onDelete?: (content: Content) => Promise<void>;
@@ -83,6 +84,7 @@ function resizeImage(file: File): Promise<string> {
 
 export default function ContentForm({
   initial,
+  initialDate,
   isAdmin,
   onClose,
   onDelete,
@@ -91,7 +93,7 @@ export default function ContentForm({
 }: ContentFormProps) {
   const [form, setForm] = useState<ContentFormData>(() => ({
     title: initial?.title || '',
-    date: initial?.date || new Date().toISOString().slice(0, 10),
+    date: initial?.date || initialDate || new Date().toISOString().slice(0, 10),
     channel: initial?.channel || channels[0].value,
     format: initial?.format || formats[0],
     link: initial?.link || '',

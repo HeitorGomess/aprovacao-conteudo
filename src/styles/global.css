@@ -50,6 +50,11 @@ a:hover { text-decoration: underline; }
 .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
 .user-menu { gap: 12px; color: var(--muted); font-size: 13px; }
 .user-menu span { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.view-as-selector { display: flex; align-items: center; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.view-as-selector select { min-height: 38px; max-width: 150px; padding: 6px 26px 6px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; }
+.review-mode-banner { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; padding: 9px 12px; border: 1px solid #d6dbd3; border-radius: 9px; color: var(--muted); background: #f8f9f6; font-size: 13px; }
+.review-mode-banner button { padding: 0; border: 0; color: var(--accent); background: transparent; font-weight: 600; }
+.review-mode-banner button:hover { text-decoration: underline; }
 .workspace-header-main, .workspace-admin-brand { display: flex; min-width: 0; align-items: center; gap: 22px; }
 .workspace-controls { display: flex; min-width: 0; align-items: center; flex-wrap: nowrap; gap: 8px; }
 .workspace-select { max-width: 220px; min-height: 38px; padding: 7px 30px 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-weight: 600; }
@@ -98,6 +103,17 @@ a:hover { text-decoration: underline; }
 .profile-fields input[readonly] { background: #f7f8f5; color: var(--muted); }
 .profile-settings-card > .form-error, .profile-settings-card > .notice { grid-column: 1 / -1; margin: 0; }
 .profile-settings-footer { display: flex; grid-column: 1 / -1; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+.profile-settings-footer > .button:not(.button-primary) { border-color: var(--accent); color: var(--accent); background: var(--surface); }
+.profile-settings-footer > .button:not(.button-primary):hover { background: #f0f7e9; }
+.personal-space-label { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--accent); font-size: 13px; font-weight: 700; }
+.personal-dashboard { width: min(100%, 760px); margin: 56px auto 0; }
+.personal-dashboard > .eyebrow { margin-bottom: 8px; }
+.personal-dashboard > h1 { margin: 0 0 22px; font-family: 'Space Grotesk', sans-serif; font-size: 36px; letter-spacing: -.04em; }
+.personal-dashboard-card { display: grid; justify-items: start; gap: 12px; padding: 26px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.personal-dashboard-card h2, .personal-dashboard-card p { margin: 0; }
+.personal-dashboard-card h2 { font-family: 'Space Grotesk', sans-serif; font-size: 20px; }
+.personal-dashboard-card p { max-width: 580px; color: var(--muted); line-height: 1.6; }
+.personal-dashboard-settings { border-color: var(--accent); color: var(--accent); }
 .workspace-settings-section { display: grid; gap: 16px; margin: 20px 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .workspace-settings-heading h3 { margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
 .workspace-settings-heading p:last-child { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
@@ -249,11 +265,17 @@ tbody tr:last-child td { border-bottom: 0; }
 .table-title { max-width: 300px; overflow: hidden; font-weight: 600; text-overflow: ellipsis; }
 .calendar-grid { display: grid; min-width: 780px; grid-template-columns: repeat(7, minmax(95px, 1fr)); }
 .calendar-weekday { padding: 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; font-weight: 700; text-align: center; text-transform: uppercase; }
-.calendar-day { min-height: 104px; padding: 7px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.calendar-day { position: relative; min-height: 104px; padding: 7px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .calendar-day:nth-child(7n) { border-right: 0; }
 .calendar-day.outside { background: #f7f8f5; }
 .day-number { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; }
+.calendar-day-add { position: absolute; z-index: 1; inset: 0; display: flex; width: 100%; min-height: 100%; flex-direction: column; align-items: flex-start; padding: 7px; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.calendar-day-add:hover { background: #f7f8f5; }
+.calendar-day-add:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.calendar-add-label { color: var(--accent); font-size: 10px; }
+.calendar-day-contents { position: relative; z-index: 2; margin-top: 21px; pointer-events: none; }
 .calendar-item { display: block; width: 100%; overflow: hidden; margin: 3px 0; padding: 5px 6px; border-color: color-mix(in srgb, var(--status-color) 30%, white); color: var(--status-color); background: color-mix(in srgb, var(--status-color) 10%, white); font-size: 11px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-day-contents .calendar-item { pointer-events: auto; }
 
 .auth-page { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: #e9ece6; }
 .auth-layout { position: relative; display: grid; width: min(1200px, 100%); min-height: min(760px, calc(100vh - 48px)); grid-template-columns: 1.08fr .92fr; overflow: hidden; border: 1px solid #dce1d8; border-radius: 28px; background: #fbfcf9; box-shadow: 0 28px 80px #152b251c; }
@@ -378,6 +400,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .workspace-rename-form label { min-width: 0; }
   .workspace-setup-card { padding: 24px 18px; }
   .workspace-setup-card h1 { font-size: 27px; }
+  .calendar-add-label { opacity: 1; }
   .toolbar h2 { font-size: 24px; }
   .toolbar-actions { width: 100%; }
   .month-nav { flex: 1; justify-content: space-between; }

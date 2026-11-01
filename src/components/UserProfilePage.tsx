@@ -10,19 +10,19 @@ interface UserProfilePageProps {
   email: string;
   fullName: string;
   avatarUrl?: string;
+  personalSpaceName?: string;
+  allowPersonalSpaceRename?: boolean;
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
   canManage: boolean;
-  createWorkspaceRequest: number;
   demoMode: boolean;
   onChangeWorkspace: (workspaceId: string) => void;
   onCreateWorkspace: (name: string) => Promise<void>;
   onManageTeam: () => void;
   onOpenPanel: () => void;
   onOpenSettings: () => void;
-  onNewWorkspace: () => void;
   onSignOut: () => void;
-  onSaveProfile: (name: string, avatarFile?: File) => Promise<string>;
+  onSaveProfile: (name: string, avatarFile?: File, personalSpaceName?: string) => Promise<string>;
 }
 
 function getSavedName(user: User | null, fullName: string): string {
@@ -46,21 +46,22 @@ export default function UserProfilePage({
   email,
   fullName,
   avatarUrl: initialAvatarUrl = '',
+  personalSpaceName: initialPersonalSpaceName = 'Your Space',
+  allowPersonalSpaceRename = false,
   workspaces,
   activeWorkspaceId,
   canManage,
-  createWorkspaceRequest,
   demoMode,
   onChangeWorkspace,
   onCreateWorkspace,
   onManageTeam,
   onOpenPanel,
   onOpenSettings,
-  onNewWorkspace,
   onSignOut,
   onSaveProfile,
 }: UserProfilePageProps) {
   const [name, setName] = useState(getSavedName(user, fullName));
+  const [personalSpaceName, setPersonalSpaceName] = useState(initialPersonalSpaceName);
   const [avatarUrl, setAvatarUrl] = useState(getAvatarUrl(user, initialAvatarUrl));
   const [avatarFile, setAvatarFile] = useState<File>();
   const [previewUrl, setPreviewUrl] = useState('');
@@ -98,7 +99,9 @@ export default function UserProfilePage({
     setError('');
     setNotice('');
     try {
-      const savedAvatarUrl = user ? await onSaveProfile(name.trim(), avatarFile) : '';
+      const savedAvatarUrl = user
+        ? await onSaveProfile(name.trim(), avatarFile, allowPersonalSpaceRename ? personalSpaceName.trim() : undefined)
+        : '';
       setAvatarFile(undefined);
       if (savedAvatarUrl) {
         setAvatarUrl(savedAvatarUrl);
@@ -120,15 +123,15 @@ export default function UserProfilePage({
       <header className="topbar">
         <div className="workspace-header-main">
           <BrandLockup />
-          <WorkspaceSwitcher
-            workspaces={workspaces}
-            activeWorkspaceId={activeWorkspaceId}
-            canManage={canManage}
-            openCreateRequest={createWorkspaceRequest}
-            onChange={onChangeWorkspace}
-            onCreateWorkspace={onCreateWorkspace}
-            onManageTeam={canManage ? onManageTeam : undefined}
-          />
+          {workspaces.length > 0 && activeWorkspaceId && (
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              activeWorkspaceId={activeWorkspaceId}
+              canManage={false}
+              onChange={onChangeWorkspace}
+              onCreateWorkspace={onCreateWorkspace}
+            />
+          )}
         </div>
         <div className="user-menu">
           <ProfileMenu
@@ -136,7 +139,7 @@ export default function UserProfilePage({
             avatarUrl={preview || avatarUrl}
             onOpenPanel={onOpenPanel}
             onOpenSettings={onOpenSettings}
-            onNewWorkspace={onNewWorkspace}
+            onManageCompany={canManage ? onManageTeam : undefined}
             onSignOut={onSignOut}
           />
         </div>
@@ -152,7 +155,11 @@ export default function UserProfilePage({
         <div className="profile-settings-heading">
           <p className="eyebrow">SUA CONTA</p>
           <h1>Configuração do perfil</h1>
-          <p className="muted">Atualize como seu nome e sua foto aparecem para sua equipe.</p>
+          <p className="muted">
+            {allowPersonalSpaceRename
+              ? 'Atualize seu perfil e escolha um nome para seu espaço pessoal.'
+              : 'Atualize como seu nome e sua foto aparecem para sua equipe.'}
+          </p>
         </div>
 
         <form className="profile-settings-card" onSubmit={(event) => void submit(event)}>
@@ -193,6 +200,19 @@ export default function UserProfilePage({
               <input autoComplete="email" readOnly value={email} />
               <small>O e-mail da conta não pode ser alterado por aqui.</small>
             </label>
+            {allowPersonalSpaceRename && (
+              <label>
+                Nome do seu espaço
+                <input
+                  maxLength={80}
+                  minLength={2}
+                  onChange={(event) => setPersonalSpaceName(event.target.value)}
+                  required
+                  value={personalSpaceName}
+                />
+                <small>Este nome é privado e não representa uma empresa.</small>
+              </label>
+            )}
           </div>
 
           {error && <p className="form-error" role="alert">{error}</p>}

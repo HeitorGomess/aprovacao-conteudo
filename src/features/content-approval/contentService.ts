@@ -123,7 +123,11 @@ export async function deleteArchivedWorkspace(workspaceId: string): Promise<void
   if (error) throw error;
 }
 
-export async function saveUserProfile(name: string, avatarFile?: File): Promise<User> {
+export async function saveUserProfile(
+  name: string,
+  avatarFile?: File,
+  personalSpaceName?: string,
+): Promise<User> {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
   const user = sessionData.session?.user;
@@ -151,6 +155,7 @@ export async function saveUserProfile(name: string, avatarFile?: File): Promise<
     data: {
       full_name: name.trim(),
       avatar_url: avatarUrl,
+      ...(personalSpaceName ? { personal_space_name: personalSpaceName.trim() } : {}),
     },
   });
   if (error) throw new Error(`Não foi possível atualizar o perfil: ${error.message}`);

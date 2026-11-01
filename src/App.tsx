@@ -5,6 +5,7 @@ import BrandLockup from './components/BrandLockup';
 import ContentCard from './components/ContentCard';
 import ContentForm from './components/ContentForm';
 import LoginForm from './components/LoginForm';
+import PersonalDashboard from './components/PersonalDashboard';
 import ProfileMenu from './components/ProfileMenu';
 import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
@@ -38,6 +39,7 @@ import { getChannelLabel } from './features/content-approval/contentLabels';
 import type { Content, ContentFormData, ContentStatus, ReviewComment } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
+const VIEW_AS_STORAGE_PREFIX = 'your-space:view-as:';
 
 const statusLabels: Record<ContentStatus, string> = {
   rascunho: 'Rascunho',
@@ -47,6 +49,15 @@ const statusLabels: Record<ContentStatus, string> = {
 };
 
 const statuses = Object.keys(statusLabels) as ContentStatus[];
+
+function clearStoredViewAsRoles(): void {
+  const keys: string[] = [];
+  for (let index = 0; index < window.sessionStorage.length; index += 1) {
+    const key = window.sessionStorage.key(index);
+    if (key?.startsWith(VIEW_AS_STORAGE_PREFIX)) keys.push(key);
+  }
+  keys.forEach((key) => window.sessionStorage.removeItem(key));
+}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -120,10 +131,10 @@ function App() {
   const [accessCheckError, setAccessCheckError] = useState('');
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceSummary | null>(null);
+  const [viewAsRole, setViewAsRole] = useState<WorkspaceRole>('administrador');
   const [workspaceLoading, setWorkspaceLoading] = useState(!demoMode);
   const [workspaceError, setWorkspaceError] = useState('');
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
-  const [createWorkspaceRequest, setCreateWorkspaceRequest] = useState(0);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [passwordRecovery, setPasswordRecovery] = useState(false);
@@ -138,13 +149,39 @@ function App() {
   const [query, setQuery] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Content | null>(null);
+  const [newContentDate, setNewContentDate] = useState('');
   const [importing, setImporting] = useState(false);
   const [reviewing, setReviewing] = useState<Content | null>(null);
+  const isWorkspaceAdmin = activeWorkspace?.role === 'administrador';
+  const activeIsAdmin = demoMode ? demoRole === 'administrador' : isAdmin;
+  const activeRole: WorkspaceRole | null = isWorkspaceAdmin
+    ? viewAsRole
+    : demoMode
+      ? demoRole === 'administrador' ? 'administrador' : demoRole
+      : role;
+  const isAdminReviewerMode = isWorkspaceAdmin && viewAsRole === 'revisor';
+  const canManageWorkspace = activeIsAdmin && activeRole === 'administrador';
   const authUserId = useRef<string | null>(null);
   const signupConfirmationRedirect = useRef(
     new URLSearchParams(window.location.search).get('auth') === 'confirmed'
       || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'signup',
   );
+
+  useEffect(() => {
+    clearStoredViewAsRoles();
+  }, [session?.user.id]);
+
+  useEffect(() => {
+    const workspaceId = activeWorkspace?.id;
+    const storedRole = workspaceId
+      ? window.sessionStorage.getItem(`${VIEW_AS_STORAGE_PREFIX}${workspaceId}`)
+      : null;
+    setViewAsRole(
+      storedRole === 'programador' || storedRole === 'revisor'
+        ? storedRole
+        : 'administrador',
+    );
+  }, [activeWorkspace?.id]);
 
   useEffect(() => {
     if (demoMode) {
@@ -290,7 +327,7 @@ function App() {
           ? workspaceResult.find((workspace) => workspace.slug === urlSlug && !workspace.archivedAt)
           : workspaceResult.find((workspace) => workspace.slug === savedSlug && !workspace.archivedAt)
             || workspaceResult.find((workspace) => !workspace.archivedAt);
-        if (urlSlug && !selected) {
+        if (urlSlug && !selected && workspaceResult.length > 0) {
           throw new Error('Sua conta não tem acesso à empresa selecionada. Selecione uma empresa disponível ou peça um convite ao administrador.');
         }
         setWorkspaces(workspaceResult);
@@ -301,6 +338,12 @@ function App() {
         setAccessUserId(userId);
         setAccessCheckError('');
         if (selected) updateWorkspaceUrl(selected.slug);
+        else if (urlSlug) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('workspace');
+          window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+          window.sessionStorage.removeItem('activeWorkspaceSlug');
+        }
         setContents([]);
       } catch (reason) {
         if (!active) return;
@@ -358,12 +401,20 @@ function App() {
   }, [activeWorkspace?.id, adminView, demoMode, session, teamView]);
 
   const monthContents = useMemo(
-    () => contents.filter((content) => content.date.startsWith(localMonthKey(month))),
-    [contents, month],
+    () => contents.filter((content) => (
+      content.date.startsWith(localMonthKey(month))
+      && (activeRole !== 'revisor' || content.status !== 'rascunho')
+    )),
+    [contents, month, activeRole],
   );
   const channels = useMemo(
-    () => Array.from(new Set(contents.map((content) => content.channel).filter(Boolean))).sort(),
-    [contents],
+    () => Array.from(new Set(
+      contents
+        .filter((content) => activeRole !== 'revisor' || content.status !== 'rascunho')
+        .map((content) => content.channel)
+        .filter(Boolean),
+    )).sort(),
+    [contents, activeRole],
   );
   const visibleContents = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
@@ -393,7 +444,7 @@ function App() {
       );
     }
     if (signUpError) throw new Error(`Não foi possível criar a conta: ${signUpError.message}`);
-    return 'Conta criada. Confirme seu e-mail para criar uma empresa ou pedir para ser adicionado a uma equipe.';
+    return 'Conta criada. Confirme seu e-mail e entre para acessar seu espaço pessoal. Um administrador poderá adicionar você a uma empresa.';
   }
 
   async function handlePasswordReset(email: string): Promise<string> {
@@ -414,13 +465,15 @@ function App() {
     if (logoutError) setError(`Não foi possível sair: ${logoutError.message}`);
   }
 
-  function openNewContent() {
+  function openNewContent(date?: string) {
     setEditing(null);
+    setNewContentDate(date || '');
     setFormOpen(true);
   }
 
   function openEditContent(content: Content) {
     setEditing(content);
+    setNewContentDate('');
     setFormOpen(true);
   }
 
@@ -487,9 +540,16 @@ function App() {
   ) {
     const now = new Date().toISOString();
     const normalizedComment = comment.trim();
+    const actorEmail = demoMode ? 'admin@exemplo.com' : session?.user.email || '';
+    const actorName = demoMode
+      ? 'Administrador demo'
+      : typeof session?.user.user_metadata?.full_name === 'string' && session.user.user_metadata.full_name.trim()
+        ? session.user.user_metadata.full_name.trim()
+        : actorEmail || 'Usuário';
     const reviewComment: ReviewComment = {
       at: now,
-      author: demoMode ? 'Revisor de demonstração' : session?.user.email || 'Revisor',
+      author: actorName,
+      authorEmail: actorEmail,
       comment: normalizedComment,
       decision: status,
     };
@@ -497,7 +557,7 @@ function App() {
       ...content,
       status,
       updatedAt: now,
-      history: [...content.history.slice(-19), { status, at: now }],
+      history: [...content.history.slice(-19), { status, at: now, author: actorName, authorEmail: actorEmail }],
       reviewComments: normalizedComment
         ? [...(content.reviewComments || []), reviewComment]
         : content.reviewComments,
@@ -512,6 +572,19 @@ function App() {
       setError('');
     } catch (reason) {
       throw new Error(`Não foi possível registrar o parecer: ${getErrorMessage(reason)}`);
+    }
+  }
+
+  function changeViewAsRole(nextRole: WorkspaceRole) {
+    if (!activeWorkspace || !isWorkspaceAdmin) return;
+    window.sessionStorage.setItem(
+      `${VIEW_AS_STORAGE_PREFIX}${activeWorkspace.id}`,
+      nextRole,
+    );
+    setViewAsRole(nextRole);
+    if (nextRole !== 'administrador') {
+      setFormOpen(false);
+      setEditing(null);
     }
   }
 
@@ -667,9 +740,9 @@ function App() {
     }
   }
 
-  async function handleSaveProfile(name: string, avatarFile?: File): Promise<string> {
+  async function handleSaveProfile(name: string, avatarFile?: File, personalSpaceName?: string): Promise<string> {
     if (demoMode) return '';
-    const updatedUser = await saveUserProfile(name, avatarFile);
+    const updatedUser = await saveUserProfile(name, avatarFile, personalSpaceName);
     setSession((current) => current ? { ...current, user: updatedUser } : current);
     const avatarUrl = updatedUser.user_metadata?.avatar_url;
     return typeof avatarUrl === 'string' ? avatarUrl : '';
@@ -681,10 +754,6 @@ function App() {
 
   function openProfileSettings(): void {
     window.location.assign(getProfilePageUrl());
-  }
-
-  function requestWorkspaceCreation(): void {
-    setCreateWorkspaceRequest((current) => current + 1);
   }
 
   function navigateBackFromWorkspacePage(parameter: 'admin' | 'team'): void {
@@ -700,7 +769,7 @@ function App() {
     return (
       <LoginForm
         error={authError}
-        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para criar uma empresa ou pedir para ser adicionado a uma equipe.' : ''}
+        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para acessar seu espaço pessoal. Um administrador poderá adicionar você a uma empresa.' : ''}
         recovery
         onSubmit={handleLogin}
         onSignUp={handleSignUp}
@@ -713,7 +782,7 @@ function App() {
     return (
       <LoginForm
         error={authError}
-        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para criar uma empresa ou pedir para ser adicionado a uma equipe.' : ''}
+        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para acessar seu espaço pessoal. Um administrador poderá adicionar você a uma empresa.' : ''}
         onSubmit={handleLogin}
         onSignUp={handleSignUp}
         onRequestPasswordReset={handlePasswordReset}
@@ -721,10 +790,6 @@ function App() {
       />
     );
   }
-  const activeIsAdmin = demoMode ? demoRole === 'administrador' : isAdmin;
-  const activeRole = demoMode
-    ? demoRole === 'administrador' ? 'programador' : demoRole
-    : role;
   if (
     (adminView || teamView)
     && !demoMode
@@ -784,25 +849,49 @@ function App() {
     const userAvatarUrl = typeof user?.user_metadata?.avatar_url === 'string'
       ? user.user_metadata.avatar_url
       : '';
+    const personalSpaceName = typeof user?.user_metadata?.personal_space_name === 'string'
+      && user.user_metadata.personal_space_name.trim()
+      ? user.user_metadata.personal_space_name.trim()
+      : 'Your Space';
     return (
       <UserProfilePage
         user={user}
         email={userEmail}
         fullName={userFullName}
         avatarUrl={userAvatarUrl}
+        personalSpaceName={personalSpaceName}
+        allowPersonalSpaceRename={!activeWorkspace && !demoMode}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspace?.id || ''}
-        canManage={activeIsAdmin}
-        createWorkspaceRequest={createWorkspaceRequest}
+        canManage={canManageWorkspace}
         demoMode={demoMode}
         onChangeWorkspace={handleWorkspaceChange}
         onCreateWorkspace={handleCreateWorkspace}
         onManageTeam={() => window.location.assign(getWorkspaceTeamUrl())}
         onOpenPanel={openPanelPage}
         onOpenSettings={() => undefined}
-        onNewWorkspace={requestWorkspaceCreation}
         onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
         onSaveProfile={handleSaveProfile}
+      />
+    );
+  }
+  if (!activeWorkspace && workspaces.length === 0 && !demoMode) {
+    const user = session?.user;
+    const fullName = typeof user?.user_metadata?.full_name === 'string'
+      ? user.user_metadata.full_name
+      : '';
+    const personalSpaceName = typeof user?.user_metadata?.personal_space_name === 'string'
+      && user.user_metadata.personal_space_name.trim()
+      ? user.user_metadata.personal_space_name.trim()
+      : 'Your Space';
+    return (
+      <PersonalDashboard
+        displayName={fullName || user?.email || 'Meu perfil'}
+        avatarUrl={typeof user?.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : ''}
+        spaceName={personalSpaceName}
+        error={workspaceError ? 'Não foi possível verificar os vínculos da sua conta. Tente novamente antes de continuar.' : ''}
+        onOpenSettings={openProfileSettings}
+        onSignOut={() => void handleLogout()}
       />
     );
   }
@@ -820,7 +909,7 @@ function App() {
     );
   }
   if (teamView) {
-    if (!activeIsAdmin) {
+    if (!canManageWorkspace) {
       return (
         <main className="auth-page">
           <section className="auth-card">
@@ -843,8 +932,7 @@ function App() {
         workspaceName={activeWorkspace?.name || 'Your Space'}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspace?.id || ''}
-        createWorkspaceRequest={createWorkspaceRequest}
-        canManage={activeIsAdmin}
+        canManage={canManageWorkspace}
         isSystemAdmin={demoMode ? demoRole === 'administrador' : isSystemAdmin}
         profileName={session?.user.user_metadata?.full_name || ''}
         avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
@@ -854,9 +942,9 @@ function App() {
         onArchiveWorkspace={handleArchiveWorkspace}
         onRestoreWorkspace={handleRestoreWorkspace}
         onDeleteWorkspace={handleDeleteArchivedWorkspace}
+        onManageCompany={() => window.location.assign(getWorkspaceTeamUrl())}
         onOpenPanel={openPanelPage}
         onOpenSettings={openProfileSettings}
-        onNewWorkspace={requestWorkspaceCreation}
         onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
         onExitDemo={exitDemoMode}
       />
@@ -893,15 +981,33 @@ function App() {
             <WorkspaceSwitcher
               workspaces={workspaces}
               activeWorkspaceId={activeWorkspace.id}
-              canManage={activeIsAdmin}
-              openCreateRequest={createWorkspaceRequest}
+              canManage={false}
+              canCreateWorkspace={!isWorkspaceAdmin || activeRole === 'administrador'}
               onChange={handleWorkspaceChange}
               onCreateWorkspace={handleCreateWorkspace}
-              onManageTeam={() => window.location.assign(getWorkspaceTeamUrl())}
             />
           )}
         </div>
         <div className="user-menu">
+          {isWorkspaceAdmin && (
+            <label className="view-as-selector">
+              <span>Visualizar como:</span>
+              <select
+                aria-label="Visualizar como"
+                value={viewAsRole}
+                onChange={(event) => {
+                  const selectedRole = event.target.value;
+                  if (selectedRole === 'administrador' || selectedRole === 'programador' || selectedRole === 'revisor') {
+                    changeViewAsRole(selectedRole);
+                  }
+                }}
+              >
+                <option value="administrador">Administrador</option>
+                <option value="programador">Programador</option>
+                <option value="revisor">Revisor</option>
+              </select>
+            </label>
+          )}
           <ProfileMenu
             displayName={
               typeof session?.user.user_metadata?.full_name === 'string'
@@ -909,13 +1015,20 @@ function App() {
                 : demoMode ? 'Administrador demo' : 'Meu perfil'
             }
             avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
-            onOpenPanel={openPanelPage}
+            onOpenPanel={canManageWorkspace ? openPanelPage : undefined}
             onOpenSettings={openProfileSettings}
-            onNewWorkspace={requestWorkspaceCreation}
+            onManageCompany={canManageWorkspace ? () => window.location.assign(getWorkspaceTeamUrl()) : undefined}
             onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
           />
         </div>
       </header>
+
+      {isAdminReviewerMode && (
+        <div className="review-mode-banner" role="status">
+          <span>Você está vendo como revisor</span>
+          <button onClick={() => changeViewAsRole('administrador')} type="button">Voltar para administrador</button>
+        </div>
+      )}
 
       {demoMode && (
         <div className="notice demo-banner" role="status">
@@ -954,7 +1067,7 @@ function App() {
                   type="file"
                 />
               </label>
-              <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
+              <button className="button button-primary" onClick={() => openNewContent()} type="button">+ Novo conteúdo</button>
             </div>
           )}
         </div>
@@ -1003,20 +1116,20 @@ function App() {
 
       {loading ? (
         <div className="empty-state"><p>Carregando conteúdos…</p></div>
-      ) : isReviewer && visibleContents.length === 0 ? (
+      ) : isReviewer && visibleContents.length === 0 && view !== 'calendar' ? (
         <div className="empty-state">
           <span className="empty-mark">✓</span>
           <h2>Nenhuma publicação neste mês</h2>
           <p>Publicações em revisão e os pareceres já registrados aparecerão aqui. Rascunhos continuam visíveis apenas para programadores.</p>
         </div>
-      ) : !isReviewer && monthContents.length === 0 ? (
+      ) : !isReviewer && monthContents.length === 0 && view !== 'calendar' ? (
         <div className="empty-state">
           <span className="empty-mark">✳</span>
           <h2>Nada agendado em {monthName}</h2>
           <p>Adicione conteúdos para organizar as publicações e acompanhar as aprovações.</p>
-          <button className="button button-primary" onClick={openNewContent} type="button">+ Novo conteúdo</button>
+          <button className="button button-primary" onClick={() => openNewContent()} type="button">+ Novo conteúdo</button>
         </div>
-      ) : visibleContents.length === 0 ? (
+      ) : visibleContents.length === 0 && view !== 'calendar' ? (
         <div className="empty-state"><h2>Nenhum resultado</h2><p>Ajuste os filtros para ver os conteúdos deste mês.</p></div>
       ) : view === 'cards' && isReviewer ? (
         <section className="content-grid review-grid" aria-label="Publicações e pareceres">
@@ -1068,27 +1181,45 @@ function App() {
         </div>
       ) : (
         <section className="calendar-wrap" aria-label={`Calendário de ${monthName}`}>
-          <div className="calendar-grid">
-            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <div className="calendar-weekday" key={day}>{day}</div>)}
+          <div className="calendar-grid" role="grid" aria-label={`Calendário de ${monthName}`}>
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <div className="calendar-weekday" key={day} role="columnheader">{day}</div>)}
             {Array.from({ length: calendarLength }, (_, index) => {
               const day = index - firstWeekday + 1;
-              if (day < 1 || day > numberOfDays) return <div className="calendar-day outside" key={`empty-${index}`} />;
+              if (day < 1 || day > numberOfDays) return <div className="calendar-day outside" key={`empty-${index}`} role="gridcell" />;
               const date = `${localMonthKey(month)}-${String(day).padStart(2, '0')}`;
               const dayContents = visibleContents.filter((content) => content.date === date);
               return (
-                <div className="calendar-day" key={date}>
-                  <span className="day-number">{day}</span>
-                  {dayContents.map((content) => (
+                <div className="calendar-day" key={date} role="gridcell">
+                  {!isReviewer ? (
                     <button
-                      className={`calendar-item status-${content.status}`}
-                      key={content.id}
-                      disabled={isReviewer && content.status !== 'revisao'}
-                      onClick={() => isReviewer ? setReviewing(content) : openEditContent(content)}
+                      aria-label={`Criar postagem em ${new Date(`${date}T12:00:00`).toLocaleDateString('pt-BR')}`}
+                      className="calendar-day-add"
+                      onClick={() => openNewContent(date)}
                       type="button"
                     >
-                      {content.title}
+                      <span className="day-number">{day}</span>
+                      <span className="calendar-add-label">+ Nova postagem</span>
                     </button>
-                  ))}
+                  ) : (
+                    <span className="day-number">{day}</span>
+                  )}
+                  <div className="calendar-day-contents">
+                    {dayContents.map((content) => (
+                      <button
+                        className={`calendar-item status-${content.status}`}
+                        key={content.id}
+                        disabled={isReviewer && content.status !== 'revisao'}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (isReviewer) setReviewing(content);
+                          else openEditContent(content);
+                        }}
+                        type="button"
+                      >
+                        {content.title}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               );
             })}
@@ -1096,11 +1227,12 @@ function App() {
         </section>
       )}
 
-      {formOpen && (
+      {formOpen && !isReviewer && (
         <ContentForm
-          key={editing?.id || 'new-content'}
+          key={editing?.id || newContentDate || 'new-content'}
           initial={editing}
-          isAdmin={activeIsAdmin}
+          initialDate={newContentDate}
+          isAdmin={canManageWorkspace}
           onClose={() => { setFormOpen(false); setEditing(null); }}
           onDelete={handleDelete}
           onResetReviewComments={handleResetReviewComments}

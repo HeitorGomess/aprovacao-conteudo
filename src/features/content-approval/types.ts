@@ -3,11 +3,14 @@ export type ContentStatus = 'rascunho' | 'revisao' | 'ajustes' | 'aprovado';
 export interface StatusChange {
   status: ContentStatus;
   at: string;
+  author?: string;
+  authorEmail?: string;
 }
 
 export interface ReviewComment {
   at: string;
   author: string;
+  authorEmail?: string;
   comment: string;
   decision: 'aprovado' | 'ajustes';
 }

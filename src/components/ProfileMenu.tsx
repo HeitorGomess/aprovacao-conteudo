@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 interface ProfileMenuProps {
   displayName: string;
   avatarUrl?: string;
-  onOpenPanel: () => void;
+  onOpenPanel?: () => void;
   onOpenSettings: () => void;
-  onNewWorkspace: () => void;
+  onManageCompany?: () => void;
   onSignOut: () => void;
 }
 
@@ -14,7 +14,7 @@ export default function ProfileMenu({
   avatarUrl,
   onOpenPanel,
   onOpenSettings,
-  onNewWorkspace,
+  onManageCompany,
   onSignOut,
 }: ProfileMenuProps) {
   const [open, setOpen] = useState(false);
@@ -67,9 +67,13 @@ export default function ProfileMenu({
             <strong>{displayName}</strong>
             <span>Conta Your Space</span>
           </div>
-          <button role="menuitem" onClick={() => run(onOpenPanel)} type="button">Painel</button>
+          {onOpenPanel && (
+            <button role="menuitem" onClick={() => run(onOpenPanel)} type="button">Painel</button>
+          )}
           <button role="menuitem" onClick={() => run(onOpenSettings)} type="button">Configuração</button>
-          <button role="menuitem" onClick={() => run(onNewWorkspace)} type="button">Nova empresa</button>
+          {onManageCompany && (
+            <button role="menuitem" onClick={() => run(onManageCompany)} type="button">Gerenciar empresa</button>
+          )}
           <button className="profile-menu-logout" role="menuitem" onClick={() => run(onSignOut)} type="button">Sair</button>
         </div>
       )}

@@ -445,6 +445,16 @@ begin
     raise exception 'Confirme seu e-mail antes de criar uma empresa.';
   end if;
 
+  if not exists (
+    select 1 from public.workspace_members
+    where user_id = (select auth.uid())
+  ) and not exists (
+    select 1 from public.panel_admins
+    where user_id = (select auth.uid())
+  ) then
+    raise exception 'Peça ao administrador para adicionar sua conta a uma empresa antes de criar outra.';
+  end if;
+
   if normalized_name is null
     or pg_catalog.length(normalized_name) < 2
     or pg_catalog.length(normalized_name) > 80 then
@@ -958,6 +968,8 @@ set search_path = ''
 as $$
 declare
   post_data jsonb;
+  actor_name text;
+  actor_email text;
   decision_at text := pg_catalog.to_char(
     pg_catalog.clock_timestamp() at time zone 'UTC',
     'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
@@ -986,6 +998,17 @@ begin
     raise exception 'Somente revisores e administradores desta empresa podem enviar pareceres.';
   end if;
 
+  select
+    coalesce(
+      nullif(pg_catalog.btrim(users.raw_user_meta_data ->> 'full_name'), ''),
+      nullif(pg_catalog.btrim(users.email), ''),
+      'Usuário'
+    ),
+    coalesce(nullif(pg_catalog.btrim(users.email), ''), '')
+  into actor_name, actor_email
+  from auth.users as users
+  where users.id = (select auth.uid());
+
   if p_status is null or p_status not in ('aprovado', 'ajustes') then
     raise exception 'Decisão de revisão inválida.';
   end if;
@@ -1013,7 +1036,12 @@ begin
         when pg_catalog.jsonb_typeof(post_data -> 'history') = 'array' then post_data -> 'history'
         else '[]'::jsonb
       end) || pg_catalog.jsonb_build_array(
-        pg_catalog.jsonb_build_object('status', p_status, 'at', decision_at)
+        pg_catalog.jsonb_build_object(
+          'status', p_status,
+          'at', decision_at,
+          'author', actor_name,
+          'authorEmail', actor_email
+        )
       ),
     'reviewComments',
       (case
@@ -1026,7 +1054,8 @@ begin
           end) || pg_catalog.jsonb_build_array(
             pg_catalog.jsonb_build_object(
               'at', decision_at,
-              'author', coalesce((select auth.jwt() ->> 'email'), 'Revisor'),
+              'author', actor_name,
+              'authorEmail', actor_email,
               'comment', pg_catalog.btrim(p_comment),
               'decision', p_status
             )

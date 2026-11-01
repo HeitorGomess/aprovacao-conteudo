@@ -19,7 +19,6 @@ interface WorkspaceTeamDashboardProps {
   workspaceName: string;
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
-  createWorkspaceRequest: number;
   canManage: boolean;
   isSystemAdmin: boolean;
   profileName: string;
@@ -30,9 +29,9 @@ interface WorkspaceTeamDashboardProps {
   onArchiveWorkspace: (workspaceId: string) => Promise<void>;
   onRestoreWorkspace: (workspaceId: string) => Promise<void>;
   onDeleteWorkspace: (workspaceId: string) => Promise<void>;
+  onManageCompany: () => void;
   onOpenPanel: () => void;
   onOpenSettings: () => void;
-  onNewWorkspace: () => void;
   onSignOut: () => void;
   onExitDemo: () => void;
 }
@@ -78,7 +77,6 @@ export default function WorkspaceTeamDashboard({
   workspaceName,
   workspaces,
   activeWorkspaceId,
-  createWorkspaceRequest,
   canManage,
   isSystemAdmin,
   profileName,
@@ -89,9 +87,9 @@ export default function WorkspaceTeamDashboard({
   onArchiveWorkspace,
   onRestoreWorkspace,
   onDeleteWorkspace,
+  onManageCompany,
   onOpenPanel,
   onOpenSettings,
-  onNewWorkspace,
   onSignOut,
   onExitDemo,
 }: WorkspaceTeamDashboardProps) {
@@ -267,7 +265,6 @@ export default function WorkspaceTeamDashboard({
             workspaces={workspaces}
             activeWorkspaceId={activeWorkspaceId}
             canManage={false}
-            openCreateRequest={createWorkspaceRequest}
             onChange={onChangeWorkspace}
             onCreateWorkspace={onCreateWorkspace}
           />
@@ -278,7 +275,7 @@ export default function WorkspaceTeamDashboard({
             avatarUrl={avatarUrl}
             onOpenPanel={onOpenPanel}
             onOpenSettings={onOpenSettings}
-            onNewWorkspace={onNewWorkspace}
+            onManageCompany={onManageCompany}
             onSignOut={onSignOut}
           />
         </div>
