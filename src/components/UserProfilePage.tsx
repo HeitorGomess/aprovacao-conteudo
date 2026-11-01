@@ -23,6 +23,7 @@ interface UserProfilePageProps {
   onOpenSettings: () => void;
   onSignOut: () => void;
   onSaveProfile: (name: string, avatarFile?: File, personalSpaceName?: string) => Promise<string>;
+  onDeleteAccount: () => Promise<void>;
 }
 
 function getSavedName(user: User | null, fullName: string): string {
@@ -59,6 +60,7 @@ export default function UserProfilePage({
   onOpenSettings,
   onSignOut,
   onSaveProfile,
+  onDeleteAccount,
 }: UserProfilePageProps) {
   const [name, setName] = useState(getSavedName(user, fullName));
   const [personalSpaceName, setPersonalSpaceName] = useState(initialPersonalSpaceName);
@@ -68,6 +70,9 @@ export default function UserProfilePage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState('');
 
   useEffect(() => {
     if (!previewUrl) return;
@@ -112,6 +117,17 @@ export default function UserProfilePage({
       setError(reason instanceof Error ? reason.message : 'Não foi possível salvar seu perfil.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function confirmDeleteAccount() {
+    setDeletingAccount(true);
+    setDeleteAccountError('');
+    try {
+      await onDeleteAccount();
+    } catch (reason) {
+      setDeleteAccountError(reason instanceof Error ? reason.message : 'Não foi possível excluir sua conta.');
+      setDeletingAccount(false);
     }
   }
 
@@ -223,7 +239,82 @@ export default function UserProfilePage({
             </button>
           </footer>
         </form>
+
+        {!demoMode && (
+          <section className="account-delete-section" aria-labelledby="account-delete-title">
+            <div>
+              <h2 id="account-delete-title">Excluir conta</h2>
+              <p>
+                A exclusão é permanente. Seu espaço pessoal e seus conteúdos serão apagados; suas participações em outras empresas serão removidas, mas os espaços e conteúdos delas serão preservados.
+              </p>
+            </div>
+            <button
+              className="button button-danger account-delete-trigger"
+              onClick={() => {
+                setDeleteAccountError('');
+                setDeleteAccountOpen(true);
+              }}
+              type="button"
+            >
+              Deletar conta
+            </button>
+          </section>
+        )}
       </section>
+
+      {deleteAccountOpen && (
+        <div
+          className="modal-backdrop account-delete-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !deletingAccount) setDeleteAccountOpen(false);
+          }}
+        >
+          <section className="workspace-modal account-delete-modal" role="dialog" aria-modal="true" aria-labelledby="account-delete-confirm-title">
+            <header className="modal-header">
+              <div>
+                <p className="eyebrow">AÇÃO PERMANENTE</p>
+                <h2 id="account-delete-confirm-title">Tem certeza que deseja deletar sua conta?</h2>
+              </div>
+              <button
+                className="icon-button"
+                disabled={deletingAccount}
+                onClick={() => setDeleteAccountOpen(false)}
+                type="button"
+                aria-label="Fechar confirmação"
+              >
+                ×
+              </button>
+            </header>
+            <div className="account-delete-content">
+              <p>
+                A conta{email ? ` ${email}` : ''} e o espaço pessoal serão excluídos permanentemente, incluindo os conteúdos pessoais. Você será removido das outras empresas, mas elas e seus conteúdos continuarão disponíveis para os demais membros.
+              </p>
+              <p className="account-delete-warning">
+                Se você for proprietário de outra empresa, a propriedade será transferida para outro administrador. Se não houver outro administrador, será necessário promover alguém antes de excluir a conta.
+              </p>
+              {deleteAccountError && <p className="form-error" role="alert">{deleteAccountError}</p>}
+              <footer className="modal-footer">
+                <button
+                  className="button"
+                  disabled={deletingAccount}
+                  onClick={() => setDeleteAccountOpen(false)}
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="button button-danger"
+                  disabled={deletingAccount}
+                  onClick={() => void confirmDeleteAccount()}
+                  type="button"
+                >
+                  {deletingAccount ? 'Excluindo conta…' : 'Sim, deletar conta'}
+                </button>
+              </footer>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

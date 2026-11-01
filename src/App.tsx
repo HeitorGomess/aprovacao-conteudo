@@ -16,6 +16,7 @@ import {
   archiveWorkspace,
   deleteArchivedWorkspace,
   deleteContent,
+  deleteMyAccount,
   ensurePersonalWorkspace,
   fetchContents,
   listUserWorkspaces,
@@ -462,6 +463,10 @@ function App() {
     if (logoutError) setError(`Não foi possível sair: ${logoutError.message}`);
   }
 
+  async function handleDeleteAccount(): Promise<void> {
+    await deleteMyAccount();
+  }
+
   function openNewContent(date?: string) {
     setEditing(null);
     setNewContentDate(date || '');
@@ -876,6 +881,7 @@ function App() {
         onOpenSettings={() => undefined}
         onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
         onSaveProfile={handleSaveProfile}
+        onDeleteAccount={handleDeleteAccount}
       />
     );
   }

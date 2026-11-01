@@ -87,6 +87,35 @@ export async function ensurePersonalWorkspace(): Promise<boolean> {
   throw error;
 }
 
+export async function deleteMyAccount(): Promise<void> {
+  const { data, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!data.user) throw new Error('Sua sessão expirou. Entre novamente antes de excluir a conta.');
+
+  const { error: deletionError } = await supabase.rpc('delete_my_account');
+  if (deletionError) {
+    if (deletionError.code === 'PGRST202' || deletionError.message.includes('Could not find the function')) {
+      throw new Error('A exclusão de contas ainda não está configurada neste Supabase. Execute o arquivo completo SUPABASE_SETUP.sql no SQL Editor.');
+    }
+    throw deletionError;
+  }
+
+  const avatarUrl = data.user.user_metadata?.avatar_url;
+  let avatarCleanupError = '';
+  if (typeof avatarUrl === 'string' && avatarUrl.includes('/profile-avatars/')) {
+    const { error: avatarError } = await supabase.storage
+      .from('profile-avatars')
+      .remove([`${data.user.id}/avatar`]);
+    if (avatarError) avatarCleanupError = avatarError.message;
+  }
+
+  const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+  if (signOutError) throw new Error(`Sua conta foi excluída, mas não foi possível limpar esta sessão: ${signOutError.message}`);
+  if (avatarCleanupError) {
+    throw new Error(`Sua conta foi excluída e a sessão encerrada, mas não foi possível remover a foto de perfil: ${avatarCleanupError}`);
+  }
+}
+
 export async function createWorkspace(name: string): Promise<WorkspaceSummary> {
   const { data, error } = await supabase.rpc('create_workspace', {
     p_name: name.trim(),

@@ -765,6 +765,59 @@ begin
 end;
 $$;
 
+create or replace function public.delete_my_account()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  account_user_id uuid := (select auth.uid());
+  owned_workspace record;
+  replacement_admin_id uuid;
+begin
+  if account_user_id is null then
+    raise exception 'Entre na sua conta para excluí-la.';
+  end if;
+
+  for owned_workspace in
+    select workspaces.id
+    from public.workspaces
+    where workspaces.owner_id = account_user_id
+      and not workspaces.is_personal
+    order by workspaces.id
+    for update
+  loop
+    select members.user_id
+    into replacement_admin_id
+    from public.workspace_members as members
+    where members.workspace_id = owned_workspace.id
+      and members.user_id <> account_user_id
+      and members.role = 'administrador'
+    order by members.created_at, members.user_id
+    limit 1;
+
+    if replacement_admin_id is null then
+      raise exception 'Antes de excluir a conta, promova outro administrador em cada empresa que você possui.';
+    end if;
+
+    update public.workspaces
+    set owner_id = replacement_admin_id
+    where id = owned_workspace.id;
+  end loop;
+
+  delete from public.workspace_members
+  where user_id = account_user_id;
+
+  delete from auth.users
+  where id = account_user_id;
+
+  if not found then
+    raise exception 'Não foi possível localizar a conta para exclusão.';
+  end if;
+end;
+$$;
+
 drop function if exists public.verify_workspace_access(text);
 create or replace function public.verify_workspace_access(p_workspace_slug text)
 returns table (
@@ -1222,6 +1275,7 @@ revoke all on function public.rename_workspace(uuid, text) from public;
 revoke all on function public.archive_workspace(uuid) from public;
 revoke all on function public.restore_workspace(uuid) from public;
 revoke all on function public.delete_archived_workspace(uuid) from public;
+revoke all on function public.delete_my_account() from public;
 revoke all on function public.verify_workspace_access(text) from public;
 revoke all on function public.list_workspace_members(uuid) from public;
 revoke all on function public.add_workspace_member(uuid, text, text) from public;
@@ -1238,6 +1292,7 @@ grant execute on function public.rename_workspace(uuid, text) to authenticated;
 grant execute on function public.archive_workspace(uuid) to authenticated;
 grant execute on function public.restore_workspace(uuid) to authenticated;
 grant execute on function public.delete_archived_workspace(uuid) to authenticated;
+grant execute on function public.delete_my_account() to authenticated;
 grant execute on function public.verify_workspace_access(text) to authenticated;
 grant execute on function public.list_workspace_members(uuid) to authenticated;
 grant execute on function public.add_workspace_member(uuid, text, text) to authenticated;
