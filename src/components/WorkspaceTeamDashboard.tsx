@@ -273,7 +273,6 @@ export default function WorkspaceTeamDashboard({
           <ProfileMenu
             displayName={profileName || 'Meu perfil'}
             avatarUrl={avatarUrl}
-            onOpenPanel={onOpenPanel}
             onOpenSettings={onOpenSettings}
             onManageCompany={onManageCompany}
             onSignOut={onSignOut}
@@ -290,9 +289,7 @@ export default function WorkspaceTeamDashboard({
 
       <section className="admin-intro admin-intro-row">
         <div>
-          <button className="workspace-back-button" onClick={onOpenPanel} type="button">
-            <span aria-hidden="true">←</span> Voltar ao painel
-          </button>
+          <button className="button" onClick={onOpenPanel} type="button">Voltar ao painel</button>
           <p className="eyebrow">EMPRESA</p>
           <h2>Equipe de {workspaceName}</h2>
           <p>Os perfis aqui valem apenas para esta empresa. A mesma pessoa pode ter outro perfil em outro painel.</p>

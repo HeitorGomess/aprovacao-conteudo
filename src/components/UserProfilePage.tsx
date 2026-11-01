@@ -137,7 +137,6 @@ export default function UserProfilePage({
           <ProfileMenu
             displayName={displayName}
             avatarUrl={preview || avatarUrl}
-            onOpenPanel={onOpenPanel}
             onOpenSettings={onOpenSettings}
             onManageCompany={canManage ? onManageTeam : undefined}
             onSignOut={onSignOut}

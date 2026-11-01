@@ -1015,7 +1015,6 @@ function App() {
                 : demoMode ? 'Administrador demo' : 'Meu perfil'
             }
             avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
-            onOpenPanel={canManageWorkspace ? openPanelPage : undefined}
             onOpenSettings={openProfileSettings}
             onManageCompany={canManageWorkspace ? () => window.location.assign(getWorkspaceTeamUrl()) : undefined}
             onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}

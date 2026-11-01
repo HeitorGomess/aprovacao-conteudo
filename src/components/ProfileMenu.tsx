@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 interface ProfileMenuProps {
   displayName: string;
   avatarUrl?: string;
-  onOpenPanel?: () => void;
   onOpenSettings: () => void;
   onManageCompany?: () => void;
   onSignOut: () => void;
@@ -12,7 +11,6 @@ interface ProfileMenuProps {
 export default function ProfileMenu({
   displayName,
   avatarUrl,
-  onOpenPanel,
   onOpenSettings,
   onManageCompany,
   onSignOut,
@@ -67,9 +65,6 @@ export default function ProfileMenu({
             <strong>{displayName}</strong>
             <span>Conta Your Space</span>
           </div>
-          {onOpenPanel && (
-            <button role="menuitem" onClick={() => run(onOpenPanel)} type="button">Painel</button>
-          )}
           <button role="menuitem" onClick={() => run(onOpenSettings)} type="button">Configuração</button>
           {onManageCompany && (
             <button role="menuitem" onClick={() => run(onManageCompany)} type="button">Gerenciar empresa</button>
