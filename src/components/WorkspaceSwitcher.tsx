@@ -62,7 +62,9 @@ export default function WorkspaceSwitcher({
             aria-label="Trocar empresa"
           >
             {workspaces.filter((workspace) => !workspace.archivedAt).map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>{workspace.name}</option>
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}{workspace.isPersonal ? ' · Pessoal' : ''}
+              </option>
             ))}
           </select>
         </label>

@@ -36,13 +36,21 @@ create table if not exists public.workspaces (
   name text not null,
   slug text not null unique,
   owner_id uuid not null references auth.users(id) on delete cascade,
+  is_personal boolean not null default false,
   archived_at timestamptz,
   created_at timestamptz not null default now(),
   constraint workspaces_slug_format check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')
 );
 
 alter table public.workspaces
+  add column if not exists is_personal boolean not null default false;
+
+alter table public.workspaces
   add column if not exists archived_at timestamptz;
+
+create unique index if not exists workspaces_personal_owner_unique_idx
+  on public.workspaces (owner_id)
+  where is_personal;
 
 create table if not exists public.workspace_members (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
@@ -51,6 +59,69 @@ create table if not exists public.workspace_members (
   created_at timestamptz not null default now(),
   primary key (workspace_id, user_id)
 );
+
+create or replace function public.ensure_personal_workspace_for_user(p_user_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  personal_workspace_id uuid;
+  personal_workspace_name text;
+  personal_workspace_slug text;
+begin
+  select
+    pg_catalog.left(
+      coalesce(
+        nullif(pg_catalog.btrim(users.raw_user_meta_data ->> 'personal_space_name'), ''),
+        case
+          when nullif(pg_catalog.btrim(users.raw_user_meta_data ->> 'full_name'), '') is not null
+            then pg_catalog.btrim(users.raw_user_meta_data ->> 'full_name') || ' - Espaço pessoal'
+          else 'Meu espaço pessoal'
+        end
+      ),
+      80
+    ),
+    'personal-' || pg_catalog.replace(users.id::text, '-', '')
+  into personal_workspace_name, personal_workspace_slug
+  from auth.users as users
+  where users.id = p_user_id
+    and users.email_confirmed_at is not null;
+
+  if not found then
+    raise exception 'Confirme seu e-mail antes de preparar seu espaço pessoal.';
+  end if;
+
+  insert into public.workspaces (name, slug, owner_id, is_personal)
+  values (personal_workspace_name, personal_workspace_slug, p_user_id, true)
+  on conflict (owner_id) where is_personal
+  do update set owner_id = excluded.owner_id
+  returning id into personal_workspace_id;
+
+  insert into public.workspace_members (workspace_id, user_id, role)
+  values (personal_workspace_id, p_user_id, 'administrador')
+  on conflict (workspace_id, user_id)
+  do update set role = excluded.role;
+
+  return personal_workspace_id;
+end;
+$$;
+
+create or replace function public.ensure_my_personal_workspace()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (select auth.uid()) is null then
+    raise exception 'Entre na sua conta para preparar seu espaço pessoal.';
+  end if;
+
+  perform public.ensure_personal_workspace_for_user((select auth.uid()));
+end;
+$$;
 
 do $$
 declare
@@ -175,11 +246,17 @@ begin
     on conflict (user_id) do nothing;
   end if;
 
+  if new.email_confirmed_at is not null then
+    perform public.ensure_personal_workspace_for_user(new.id);
+  end if;
+
   return new;
 end;
 $$;
 
 revoke all on function public.sync_primary_admin() from public;
+revoke all on function public.ensure_personal_workspace_for_user(uuid) from public;
+revoke all on function public.ensure_my_personal_workspace() from public;
 
 drop trigger if exists sync_primary_admin on auth.users;
 create trigger sync_primary_admin
@@ -224,6 +301,20 @@ where workspaces.slug = 'your-space'
     where panel_admins.user_id = editors.user_id
   )
 on conflict (workspace_id, user_id) do nothing;
+
+do $$
+declare
+  confirmed_user record;
+begin
+  for confirmed_user in
+    select id
+    from auth.users
+    where email_confirmed_at is not null
+  loop
+    perform public.ensure_personal_workspace_for_user(confirmed_user.id);
+  end loop;
+end;
+$$;
 
 update public.posts
 set workspace_id = (
@@ -500,6 +591,7 @@ returns table (
   workspace_slug text,
   role text,
   is_owner boolean,
+  is_personal boolean,
   archived_at timestamptz
 )
 language sql
@@ -512,6 +604,7 @@ as $$
     workspaces.slug,
     coalesce(members.role, 'administrador')::text,
     (workspaces.owner_id = (select auth.uid())),
+    workspaces.is_personal,
     workspaces.archived_at
   from public.workspaces
   left join public.workspace_members as members
@@ -594,6 +687,7 @@ begin
   set archived_at = pg_catalog.clock_timestamp()
   where id = p_workspace_id
     and slug <> 'your-space'
+    and not is_personal
     and archived_at is null;
   if not found then
     raise exception 'Esta empresa não pode ser arquivada.';
@@ -639,15 +733,17 @@ as $$
 declare
   workspace_slug text;
   workspace_archived_at timestamptz;
+  workspace_is_personal boolean;
 begin
-  select workspaces.slug, workspaces.archived_at
-  into workspace_slug, workspace_archived_at
+  select workspaces.slug, workspaces.archived_at, workspaces.is_personal
+  into workspace_slug, workspace_archived_at, workspace_is_personal
   from public.workspaces
   where workspaces.id = p_workspace_id
   for update;
 
   if not found
     or workspace_slug = 'your-space'
+    or workspace_is_personal
     or workspace_archived_at is null then
     raise exception 'Somente empresas arquivadas podem ser excluídas permanentemente.';
   end if;
@@ -1120,6 +1216,7 @@ end;
 $$;
 
 revoke all on function public.create_workspace(text) from public;
+revoke all on function public.ensure_my_personal_workspace() from public;
 revoke all on function public.list_user_workspaces() from public;
 revoke all on function public.rename_workspace(uuid, text) from public;
 revoke all on function public.archive_workspace(uuid) from public;
@@ -1135,6 +1232,7 @@ revoke all on function public.submit_review_decision(uuid, text, text, text) fro
 revoke all on function public.reset_review_comments(uuid, text) from public;
 
 grant execute on function public.create_workspace(text) to authenticated;
+grant execute on function public.ensure_my_personal_workspace() to authenticated;
 grant execute on function public.list_user_workspaces() to authenticated;
 grant execute on function public.rename_workspace(uuid, text) to authenticated;
 grant execute on function public.archive_workspace(uuid) to authenticated;

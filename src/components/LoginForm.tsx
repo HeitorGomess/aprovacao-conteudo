@@ -92,7 +92,7 @@ export default function LoginForm({
   const description = mode === 'login'
     ? 'Entre para planejar, compartilhar e acompanhar cada conteúdo da sua equipe.'
     : mode === 'signup'
-      ? 'Crie sua conta e confirme seu e-mail para acessar seu espaço pessoal. Um administrador poderá adicionar você a uma empresa.'
+      ? 'Crie sua conta e confirme seu e-mail para começar a trabalhar no seu espaço pessoal como administrador.'
       : mode === 'forgot-password'
         ? 'Enviaremos um link seguro para o e-mail cadastrado.'
         : 'Escolha uma senha segura para continuar usando sua conta.';
@@ -206,7 +206,7 @@ export default function LoginForm({
               )}
             </div>
             {mode === 'signup' && (
-              <p className="auth-footnote">Após confirmar seu e-mail, um administrador poderá adicionar sua conta a uma empresa.</p>
+              <p className="auth-footnote">Após confirmar seu e-mail, seu espaço pessoal estará pronto. Participar de outras empresas é opcional.</p>
             )}
           </div>
           <p className="auth-panel-footnote">Acesso protegido para sua equipe de marketing.</p>

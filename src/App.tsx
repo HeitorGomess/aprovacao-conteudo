@@ -5,18 +5,18 @@ import BrandLockup from './components/BrandLockup';
 import ContentCard from './components/ContentCard';
 import ContentForm from './components/ContentForm';
 import LoginForm from './components/LoginForm';
-import PersonalDashboard from './components/PersonalDashboard';
 import ProfileMenu from './components/ProfileMenu';
 import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
 import UserProfilePage from './components/UserProfilePage';
-import WorkspaceSwitcher, { WorkspaceSetupPage } from './components/WorkspaceSwitcher';
+import WorkspaceSwitcher from './components/WorkspaceSwitcher';
 import WorkspaceTeamDashboard from './components/WorkspaceTeamDashboard';
 import {
   createWorkspace,
   archiveWorkspace,
   deleteArchivedWorkspace,
   deleteContent,
+  ensurePersonalWorkspace,
   fetchContents,
   listUserWorkspaces,
   renameWorkspace,
@@ -120,7 +120,6 @@ function App() {
   const [viewAsRole, setViewAsRole] = useState<WorkspaceRole>('administrador');
   const [workspaceLoading, setWorkspaceLoading] = useState(!demoMode);
   const [workspaceError, setWorkspaceError] = useState('');
-  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const [passwordRecovery, setPasswordRecovery] = useState(false);
@@ -183,6 +182,7 @@ function App() {
         slug: 'your-space',
         role: demoRole === 'administrador' ? 'administrador' : demoRole,
         isOwner: demoRole === 'administrador',
+        isPersonal: false,
         archivedAt: null,
       };
       setWorkspaces([demoWorkspace]);
@@ -308,20 +308,25 @@ function App() {
 
     async function loadUserWorkspaces() {
       try {
+        const personalWorkspaceReady = await ensurePersonalWorkspace();
         const [workspaceResult, adminResult] = await Promise.all([
           listUserWorkspaces(),
           verifyPanelAdmin(userId),
         ]);
         if (!active) return;
+        if (!personalWorkspaceReady && workspaceResult.length === 0) {
+          throw new Error('A criação automática do espaço pessoal ainda não foi configurada. Execute o arquivo completo SUPABASE_SETUP.sql no SQL Editor do Supabase.');
+        }
         const urlSlug = new URLSearchParams(window.location.search).get('workspace');
         const savedSlug = window.sessionStorage.getItem('activeWorkspaceSlug');
-        const selected = urlSlug
+        const selected = (urlSlug
           ? workspaceResult.find((workspace) => workspace.slug === urlSlug && !workspace.archivedAt)
-          : workspaceResult.find((workspace) => workspace.slug === savedSlug && !workspace.archivedAt)
-            || workspaceResult.find((workspace) => !workspace.archivedAt);
-        if (urlSlug && !selected && workspaceResult.length > 0) {
-          throw new Error('Sua conta não tem acesso à empresa selecionada. Selecione uma empresa disponível ou peça um convite ao administrador.');
-        }
+          : undefined)
+          || (!urlSlug
+            ? workspaceResult.find((workspace) => workspace.slug === savedSlug && !workspace.archivedAt)
+            : undefined)
+          || workspaceResult.find((workspace) => workspace.isPersonal && !workspace.archivedAt)
+          || workspaceResult.find((workspace) => !workspace.archivedAt);
         setWorkspaces(workspaceResult);
         setIsSystemAdmin(adminResult);
         setActiveWorkspace(selected || null);
@@ -340,7 +345,7 @@ function App() {
       } catch (reason) {
         if (!active) return;
         const message = getErrorMessage(reason);
-        setWorkspaceError(`Não foi possível carregar suas empresas: ${message}`);
+        setWorkspaceError(`Não foi possível preparar seu espaço de trabalho: ${message}`);
         setAccessCheckError(message);
         setAccessUserId(userId);
       } finally {
@@ -436,7 +441,7 @@ function App() {
       );
     }
     if (signUpError) throw new Error(`Não foi possível criar a conta: ${signUpError.message}`);
-    return 'Conta criada. Confirme seu e-mail e entre para acessar seu espaço pessoal. Um administrador poderá adicionar você a uma empresa.';
+    return 'Conta criada. Confirme seu e-mail e entre para abrir seu espaço pessoal como administrador. Você poderá participar de outras empresas quando quiser.';
   }
 
   async function handlePasswordReset(email: string): Promise<string> {
@@ -614,35 +619,23 @@ function App() {
   }
 
   async function handleCreateWorkspace(name: string): Promise<void> {
-    setCreatingWorkspace(true);
     setWorkspaceError('');
-    try {
-      const workspace: WorkspaceSummary = demoMode
-        ? {
-            id: `demo-workspace-${Date.now()}`,
-            name,
-            slug: `${name.toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
-            role: 'administrador',
-            isOwner: true,
-            archivedAt: null,
-          }
-        : await createWorkspace(name);
-      setWorkspaces((current) => [...current, workspace]);
-      setActiveWorkspace(workspace);
-      setRole(workspace.role);
-      setIsAdmin(true);
-      updateWorkspaceUrl(workspace.slug);
-    } finally {
-      setCreatingWorkspace(false);
-    }
-  }
-
-  async function handleSetupCreateWorkspace(name: string): Promise<void> {
-    try {
-      await handleCreateWorkspace(name);
-    } catch (reason) {
-      setWorkspaceError(`Não foi possível criar a empresa: ${getErrorMessage(reason)}`);
-    }
+    const workspace: WorkspaceSummary = demoMode
+      ? {
+          id: `demo-workspace-${Date.now()}`,
+          name,
+          slug: `${name.toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
+          role: 'administrador',
+          isOwner: true,
+          isPersonal: false,
+          archivedAt: null,
+        }
+      : await createWorkspace(name);
+    setWorkspaces((current) => [...current, workspace]);
+    setActiveWorkspace(workspace);
+    setRole(workspace.role);
+    setIsAdmin(true);
+    updateWorkspaceUrl(workspace.slug);
   }
 
   function handleWorkspaceChange(workspaceId: string): void {
@@ -734,6 +727,15 @@ function App() {
 
   async function handleSaveProfile(name: string, avatarFile?: File, personalSpaceName?: string): Promise<string> {
     if (demoMode) return '';
+    if (activeWorkspace?.isPersonal && personalSpaceName) {
+      await renameWorkspace(activeWorkspace.id, personalSpaceName);
+      setWorkspaces((current) => current.map((workspace) =>
+        workspace.id === activeWorkspace.id ? { ...workspace, name: personalSpaceName } : workspace,
+      ));
+      setActiveWorkspace((current) =>
+        current?.id === activeWorkspace.id ? { ...current, name: personalSpaceName } : current,
+      );
+    }
     const updatedUser = await saveUserProfile(name, avatarFile, personalSpaceName);
     setSession((current) => current ? { ...current, user: updatedUser } : current);
     const avatarUrl = updatedUser.user_metadata?.avatar_url;
@@ -769,7 +771,7 @@ function App() {
     return (
       <LoginForm
         error={authError}
-        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para acessar seu espaço pessoal. Um administrador poderá adicionar você a uma empresa.' : ''}
+        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para abrir seu espaço pessoal como administrador.' : ''}
         recovery
         onSubmit={handleLogin}
         onSignUp={handleSignUp}
@@ -782,7 +784,7 @@ function App() {
     return (
       <LoginForm
         error={authError}
-        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para acessar seu espaço pessoal. Um administrador poderá adicionar você a uma empresa.' : ''}
+        notice={signupConfirmationNotice ? 'E-mail confirmado. Entre para abrir seu espaço pessoal como administrador.' : ''}
         onSubmit={handleLogin}
         onSignUp={handleSignUp}
         onRequestPasswordReset={handlePasswordReset}
@@ -849,7 +851,9 @@ function App() {
     const userAvatarUrl = typeof user?.user_metadata?.avatar_url === 'string'
       ? user.user_metadata.avatar_url
       : '';
-    const personalSpaceName = typeof user?.user_metadata?.personal_space_name === 'string'
+    const personalSpaceName = activeWorkspace?.isPersonal
+      ? activeWorkspace.name
+      : typeof user?.user_metadata?.personal_space_name === 'string'
       && user.user_metadata.personal_space_name.trim()
       ? user.user_metadata.personal_space_name.trim()
       : 'Your Space';
@@ -860,7 +864,7 @@ function App() {
         fullName={userFullName}
         avatarUrl={userAvatarUrl}
         personalSpaceName={personalSpaceName}
-        allowPersonalSpaceRename={!activeWorkspace && !demoMode}
+        allowPersonalSpaceRename={Boolean(activeWorkspace?.isPersonal && !demoMode)}
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspace?.id || ''}
         canManage={canManageWorkspace}
@@ -876,36 +880,20 @@ function App() {
     );
   }
   if (!activeWorkspace && workspaces.length === 0 && !demoMode) {
-    const user = session?.user;
-    const fullName = typeof user?.user_metadata?.full_name === 'string'
-      ? user.user_metadata.full_name
-      : '';
-    const personalSpaceName = typeof user?.user_metadata?.personal_space_name === 'string'
-      && user.user_metadata.personal_space_name.trim()
-      ? user.user_metadata.personal_space_name.trim()
-      : 'Your Space';
     return (
-      <PersonalDashboard
-        displayName={fullName || user?.email || 'Meu perfil'}
-        avatarUrl={typeof user?.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : ''}
-        spaceName={personalSpaceName}
-        error={workspaceError ? 'Não foi possível verificar os vínculos da sua conta. Tente novamente antes de continuar.' : ''}
-        onOpenSettings={openProfileSettings}
-        onSignOut={() => void handleLogout()}
-      />
-    );
-  }
-  if (!activeWorkspace && !demoMode) {
-    return (
-      <WorkspaceSetupPage
-        error={workspaceError}
-        pending={creatingWorkspace}
-        archivedWorkspaces={workspaces.filter((workspace) => workspace.archivedAt)}
-        onCreate={handleSetupCreateWorkspace}
-        onRestoreWorkspace={handleRestoreWorkspace}
-        onDeleteWorkspace={handleDeleteArchivedWorkspace}
-        onLogout={() => void handleLogout()}
-      />
+      <main className="auth-page">
+        <section className="auth-card">
+          <BrandLockup className="auth-card-brand" />
+          <h1>Não foi possível preparar seu espaço pessoal</h1>
+          <p className="muted">
+            {workspaceError || 'Não encontramos seu espaço de trabalho. Tente novamente para continuar.'}
+          </p>
+          <button className="button button-primary" onClick={() => window.location.reload()} type="button">
+            Tentar novamente
+          </button>
+          <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
+        </section>
+      </main>
     );
   }
   if (teamView) {
@@ -956,8 +944,11 @@ function App() {
         <section className="auth-card">
           <BrandLockup className="auth-card-brand" />
           <p className="eyebrow">ACESSO AO WORKSPACE</p>
-          <h1>Empresa não disponível</h1>
-          <p className="muted">{workspaceError || error || 'Crie uma empresa ou peça ao administrador para adicionar sua conta à equipe.'}</p>
+          <h1>Espaço pessoal não disponível</h1>
+          <p className="muted">{workspaceError || error || 'Tente novamente para abrir seu espaço pessoal.'}</p>
+          <button className="button button-primary" onClick={() => window.location.reload()} type="button">
+            Tentar novamente
+          </button>
           <button className="button" onClick={() => void handleLogout()} type="button">Sair</button>
         </section>
       </main>

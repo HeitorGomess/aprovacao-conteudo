@@ -93,6 +93,8 @@ export default function WorkspaceTeamDashboard({
   onSignOut,
   onExitDemo,
 }: WorkspaceTeamDashboardProps) {
+  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
+  const workspaceIsPersonal = Boolean(activeWorkspace?.isPersonal);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -290,9 +292,13 @@ export default function WorkspaceTeamDashboard({
       <section className="admin-intro admin-intro-row">
         <div>
           <button className="button" onClick={onOpenPanel} type="button">Voltar ao painel</button>
-          <p className="eyebrow">EMPRESA</p>
+          <p className="eyebrow">{workspaceIsPersonal ? 'ESPAÇO PESSOAL' : 'EMPRESA'}</p>
           <h2>Equipe de {workspaceName}</h2>
-          <p>Os perfis aqui valem apenas para esta empresa. A mesma pessoa pode ter outro perfil em outro painel.</p>
+          <p>
+            {workspaceIsPersonal
+              ? 'Este é seu espaço de trabalho pessoal. Você administra seu conteúdo e pode convidar pessoas se quiser.'
+              : 'Os perfis aqui valem apenas para esta empresa. A mesma pessoa pode ter outro perfil em outro painel.'}
+          </p>
         </div>
         {!demoMode && (
           <button className="button" disabled={refreshing || adding || savingUserId !== ''} onClick={() => void refreshMembers()} type="button">
@@ -301,9 +307,9 @@ export default function WorkspaceTeamDashboard({
         )}
       </section>
 
-      <section className="permission-legend" aria-label="Perfis da empresa">
-        <article><strong>Administrador</strong><span>Gerencia a equipe e todos os conteúdos desta empresa.</span></article>
-        <article><strong>Programador</strong><span>Cria, importa, edita e exclui conteúdos desta empresa.</span></article>
+      <section className="permission-legend" aria-label="Perfis do espaço">
+        <article><strong>Administrador</strong><span>Gerencia a equipe e todos os conteúdos deste espaço.</span></article>
+        <article><strong>Programador</strong><span>Cria, importa, edita e exclui conteúdos deste espaço.</span></article>
         <article><strong>Revisor</strong><span>Visualiza conteúdos em revisão, ajustes e aprovados e registra pareceres.</span></article>
       </section>
 
@@ -312,13 +318,17 @@ export default function WorkspaceTeamDashboard({
           <div className="workspace-settings-heading">
             <div>
               <p className="eyebrow">CONFIGURAÇÃO</p>
-              <h3>Configuração da empresa</h3>
-              <p>Altere o nome ou arquive este espaço sem apagar o conteúdo e a equipe.</p>
+              <h3>{workspaceIsPersonal ? 'Configuração do espaço pessoal' : 'Configuração da empresa'}</h3>
+              <p>
+                {workspaceIsPersonal
+                  ? 'Altere o nome do seu espaço pessoal.'
+                  : 'Altere o nome ou arquive este espaço sem apagar o conteúdo e a equipe.'}
+              </p>
             </div>
           </div>
           <form className="workspace-rename-form" onSubmit={(event) => void renameCurrentWorkspace(event)}>
             <label>
-              Nome da empresa
+              {workspaceIsPersonal ? 'Nome do espaço' : 'Nome da empresa'}
               <input
                 maxLength={80}
                 minLength={2}
@@ -334,7 +344,7 @@ export default function WorkspaceTeamDashboard({
             >
               {savingWorkspace ? 'Salvando…' : 'Salvar nome'}
             </button>
-            {workspaceSlug !== 'your-space' && (
+            {workspaceSlug !== 'your-space' && !workspaceIsPersonal && (
               <button
                 className="button button-danger"
                 disabled={savingWorkspace}

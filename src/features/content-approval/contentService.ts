@@ -26,6 +26,7 @@ export interface WorkspaceSummary {
   slug: string;
   role: WorkspaceRole;
   isOwner: boolean;
+  isPersonal: boolean;
   archivedAt: string | null;
 }
 
@@ -66,6 +67,7 @@ export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
     workspace_slug: string;
     role: WorkspaceRole;
     is_owner: boolean;
+    is_personal: boolean;
     archived_at: string | null;
   }) => ({
     id: item.workspace_id,
@@ -73,8 +75,16 @@ export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
     slug: item.workspace_slug,
     role: item.role,
     isOwner: item.is_owner,
+    isPersonal: item.is_personal === true,
     archivedAt: item.archived_at,
   }));
+}
+
+export async function ensurePersonalWorkspace(): Promise<boolean> {
+  const { error } = await supabase.rpc('ensure_my_personal_workspace');
+  if (!error) return true;
+  if (error.code === 'PGRST202' || error.message.includes('Could not find the function')) return false;
+  throw error;
 }
 
 export async function createWorkspace(name: string): Promise<WorkspaceSummary> {
@@ -90,6 +100,7 @@ export async function createWorkspace(name: string): Promise<WorkspaceSummary> {
     slug: workspace.workspace_slug,
     role: 'administrador',
     isOwner: true,
+    isPersonal: false,
     archivedAt: null,
   };
 }

@@ -209,7 +209,7 @@ export default function UserProfilePage({
                   required
                   value={personalSpaceName}
                 />
-                <small>Este nome é privado e não representa uma empresa.</small>
+                <small>Este é seu espaço de trabalho pessoal, separado das empresas de que você participa.</small>
               </label>
             )}
           </div>

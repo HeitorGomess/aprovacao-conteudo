@@ -47,10 +47,9 @@ export default function PersonalDashboard({
           </div>
         ) : (
           <div className="personal-dashboard-card">
-            <h2>Este espaço é só seu</h2>
+            <h2>Seu espaço pessoal está pronto</h2>
             <p>
-              Sua conta ainda não está vinculada a nenhuma empresa. Quando um administrador adicionar você à equipe,
-              o painel da empresa ficará disponível aqui.
+              Este espaço é seu ambiente de trabalho completo. Você pode começar a planejar conteúdos agora e participar de outras empresas quando quiser.
             </p>
             <button className="button personal-dashboard-settings" onClick={onOpenSettings} type="button">
               Configurar seu espaço
