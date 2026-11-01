@@ -39,14 +39,15 @@ export default function DropdownSelect({
       if (!trigger) return;
       const bounds = trigger.getBoundingClientRect();
       const menuHeight = Math.min(options.length * 41 + 16, 280);
+      const menuWidth = Math.min(180, window.innerWidth - 16);
       const spaceBelow = window.innerHeight - bounds.bottom;
       const top = spaceBelow >= menuHeight + 8 || spaceBelow >= bounds.top
         ? bounds.bottom + 4
         : Math.max(8, bounds.top - menuHeight - 4);
       setMenuPosition({
-        left: Math.max(8, Math.min(bounds.left, window.innerWidth - bounds.width - 8)),
+        left: Math.max(8, Math.min(bounds.left, window.innerWidth - menuWidth - 8)),
         top,
-        width: bounds.width,
+        width: menuWidth,
       });
     };
 
