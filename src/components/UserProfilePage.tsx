@@ -245,7 +245,7 @@ export default function UserProfilePage({
             <div>
               <h2 id="account-delete-title">Excluir conta</h2>
               <p>
-                Exclui permanentemente sua conta e seu espaço pessoal.
+                Exclui permanentemente sua conta e apenas o SEU espaço pessoal.
               </p>
             </div>
             <button
