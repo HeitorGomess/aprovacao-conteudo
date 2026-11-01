@@ -1,5 +1,6 @@
 import type { Content, ContentStatus } from '../features/content-approval/types';
 import { getChannelLabel, getContentTypeLabel } from '../features/content-approval/contentLabels';
+import AttachmentImage from './AttachmentImage';
 
 interface ContentCardProps {
   content: Content;
@@ -18,7 +19,11 @@ export default function ContentCard({ content, onEdit }: ContentCardProps) {
     <article className="content-card" onClick={() => onEdit(content)}>
       <div className="cover">
         {content.coverData ? (
-          <img src={content.coverData} alt={`Capa de ${content.title}`} loading="lazy" />
+          <AttachmentImage
+            src={content.coverData}
+            alt={`Capa de ${content.title}`}
+            triggerClassName="cover-image-trigger"
+          />
         ) : (
           <div className="cover-placeholder">{getChannelLabel(content.channel) || 'Sem capa'}</div>
         )}

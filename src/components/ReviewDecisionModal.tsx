@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Content, ContentStatus } from '../features/content-approval/types';
 import { getChannelLabel } from '../features/content-approval/contentLabels';
+import AttachmentImage from './AttachmentImage';
 
 type ReviewDecision = Extract<ContentStatus, 'aprovado' | 'ajustes'>;
 
@@ -54,7 +55,12 @@ export default function ReviewDecisionModal({ content, onClose, onSubmit }: Revi
           <div className="review-modal-body">
             <div className="review-detail">
               {content.coverData ? (
-                <img className="review-detail-image" src={content.coverData} alt={`Imagem da publicação: ${content.title}`} />
+                <AttachmentImage
+                  src={content.coverData}
+                  alt={`Imagem da publicação: ${content.title}`}
+                  imageClassName="review-detail-image"
+                  triggerClassName="review-detail-image-trigger"
+                />
               ) : (
                 <div className="review-detail-placeholder">{getChannelLabel(content.channel) || 'Sem imagem'}</div>
               )}

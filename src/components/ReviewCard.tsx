@@ -1,5 +1,6 @@
 import type { Content, ContentStatus } from '../features/content-approval/types';
 import { getChannelLabel, getContentTypeLabel } from '../features/content-approval/contentLabels';
+import AttachmentImage from './AttachmentImage';
 
 interface ReviewCardProps {
   content: Content;
@@ -33,7 +34,11 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
     >
       <div className="review-cover">
         {content.coverData ? (
-          <img src={content.coverData} alt={`Capa de ${content.title}`} loading="lazy" />
+          <AttachmentImage
+            src={content.coverData}
+            alt={`Capa de ${content.title}`}
+            triggerClassName="review-cover-image-trigger"
+          />
         ) : (
           <div className="cover-placeholder">{getChannelLabel(content.channel) || 'Sem capa'}</div>
         )}

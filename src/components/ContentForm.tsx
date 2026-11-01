@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { Content, ContentFormData, ContentStatus, ReviewComment } from '../features/content-approval/types';
+import AttachmentImage from './AttachmentImage';
 
 interface ContentFormProps {
   initial?: Content | null;
@@ -251,7 +252,11 @@ export default function ContentForm({
             </label>
             {form.coverData && (
               <div className="cover-preview">
-                <img src={form.coverData} alt="Prévia da capa" />
+                <AttachmentImage
+                  src={form.coverData}
+                  alt="Prévia da capa"
+                  triggerClassName="cover-preview-image-trigger"
+                />
                 <button className="button button-subtle" type="button" onClick={() => update('coverData', '')}>Remover capa</button>
               </div>
             )}
