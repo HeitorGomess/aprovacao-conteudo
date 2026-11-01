@@ -140,7 +140,7 @@ a:hover { text-decoration: underline; }
 .workspace-admin-topbar { align-items: flex-start; }
 .workspace-member-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, .7fr) auto; align-items: end; gap: 12px; margin-bottom: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .workspace-member-form .muted { grid-column: 1 / -1; margin: -4px 0 0; }
-.workspace-success { border-color: #b7cfaa; color: #245747; background: #f0f7e9; }
+.notice.workspace-success { border-color: #b7cfaa; color: #245747; background: #f0f7e9; }
 .toolbar { align-items: flex-end; padding: 28px 0 20px; }
 .toolbar h2 { font-size: 28px; }
 .toolbar-actions { justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
