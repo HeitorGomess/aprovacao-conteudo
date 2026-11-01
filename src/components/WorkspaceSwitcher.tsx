@@ -61,7 +61,7 @@ export default function WorkspaceSwitcher({
           onChange={onChange}
           options={workspaces.filter((workspace) => !workspace.archivedAt).map((workspace) => ({
             value: workspace.id,
-            label: `${workspace.name}${workspace.isPersonal ? ' · Pessoal' : ''}`,
+            label: workspace.name,
           }))}
         />
         {canManage && onManageTeam && (
