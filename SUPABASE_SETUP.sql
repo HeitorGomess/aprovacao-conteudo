@@ -611,18 +611,27 @@ as $$
     on members.workspace_id = workspaces.id
     and members.user_id = (select auth.uid())
   where (
-      (workspaces.archived_at is null and members.user_id is not null)
-      or (
-        workspaces.archived_at is not null
-        and (
-          workspaces.owner_id = (select auth.uid())
-          or members.role = 'administrador'
+      workspaces.is_personal
+      and workspaces.owner_id = (select auth.uid())
+    )
+    or (
+      not workspaces.is_personal
+      and (
+        (
+          (workspaces.archived_at is null and members.user_id is not null)
+          or (
+            workspaces.archived_at is not null
+            and (
+              workspaces.owner_id = (select auth.uid())
+              or members.role = 'administrador'
+            )
+          )
+        )
+        or exists (
+          select 1 from public.panel_admins
+          where panel_admins.user_id = (select auth.uid())
         )
       )
-    )
-    or exists (
-      select 1 from public.panel_admins
-      where panel_admins.user_id = (select auth.uid())
     )
   order by lower(workspaces.name);
 $$;

@@ -61,7 +61,7 @@ export async function fetchContents(workspaceId: string): Promise<Content[]> {
 export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
   const { data, error } = await supabase.rpc('list_user_workspaces');
   if (error) throw error;
-  return (data || []).map((item: {
+  const workspaces: WorkspaceSummary[] = (data || []).map((item: {
     workspace_id: string;
     workspace_name: string;
     workspace_slug: string;
@@ -78,6 +78,7 @@ export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
     isPersonal: item.is_personal === true,
     archivedAt: item.archived_at,
   }));
+  return workspaces.filter((workspace) => !workspace.isPersonal || workspace.isOwner);
 }
 
 export async function ensurePersonalWorkspace(): Promise<boolean> {
