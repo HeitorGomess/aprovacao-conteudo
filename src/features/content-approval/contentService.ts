@@ -184,7 +184,12 @@ export async function saveWorkspaceAvatar(
         contentType: avatarFile.type,
         upsert: false,
       });
-    if (uploadError) throw new Error(`Não foi possível enviar a foto da empresa: ${uploadError.message}`);
+    if (uploadError) {
+      if (uploadError.message.includes('row-level security policy')) {
+        throw new Error('O Supabase bloqueou o envio por uma regra de segurança desatualizada. Execute novamente o arquivo completo SUPABASE_SETUP.sql no SQL Editor.');
+      }
+      throw new Error(`Não foi possível enviar a foto da empresa: ${uploadError.message}`);
+    }
   }
 
   const { data: previousAvatarPath, error: updateError } = await supabase.rpc('set_workspace_avatar', {

@@ -222,6 +222,36 @@ set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
+create or replace function public.can_manage_workspace_avatar(p_workspace_id text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (select auth.uid()) is not null
+    and exists (
+      select 1
+      from public.workspaces
+      where workspaces.id::text = p_workspace_id
+        and workspaces.archived_at is null
+        and (
+          exists (
+            select 1
+            from public.workspace_members as members
+            where members.workspace_id = workspaces.id
+              and members.user_id = (select auth.uid())
+              and members.role = 'administrador'
+          )
+          or exists (
+            select 1
+            from public.panel_admins as admins
+            where admins.user_id = (select auth.uid())
+          )
+        )
+    );
+$$;
+
 drop policy if exists workspace_avatars_public_read on storage.objects;
 create policy workspace_avatars_public_read
   on storage.objects
@@ -236,25 +266,7 @@ create policy workspace_avatars_admin_insert
   to authenticated
   with check (
     bucket_id = 'workspace-avatars'
-    and exists (
-      select 1
-      from public.workspaces
-      where workspaces.id::text = (storage.foldername(name))[1]
-        and (
-          exists (
-            select 1
-            from public.workspace_members as members
-            where members.workspace_id = workspaces.id
-              and members.user_id = (select auth.uid())
-              and members.role = 'administrador'
-          )
-          or exists (
-            select 1
-            from public.panel_admins as admins
-            where admins.user_id = (select auth.uid())
-          )
-        )
-    )
+    and (select public.can_manage_workspace_avatar((storage.foldername(name))[1]))
   );
 
 drop policy if exists workspace_avatars_admin_update on storage.objects;
@@ -264,47 +276,11 @@ create policy workspace_avatars_admin_update
   to authenticated
   using (
     bucket_id = 'workspace-avatars'
-    and exists (
-      select 1
-      from public.workspaces
-      where workspaces.id::text = (storage.foldername(name))[1]
-        and (
-          exists (
-            select 1
-            from public.workspace_members as members
-            where members.workspace_id = workspaces.id
-              and members.user_id = (select auth.uid())
-              and members.role = 'administrador'
-          )
-          or exists (
-            select 1
-            from public.panel_admins as admins
-            where admins.user_id = (select auth.uid())
-          )
-        )
-    )
+    and (select public.can_manage_workspace_avatar((storage.foldername(name))[1]))
   )
   with check (
     bucket_id = 'workspace-avatars'
-    and exists (
-      select 1
-      from public.workspaces
-      where workspaces.id::text = (storage.foldername(name))[1]
-        and (
-          exists (
-            select 1
-            from public.workspace_members as members
-            where members.workspace_id = workspaces.id
-              and members.user_id = (select auth.uid())
-              and members.role = 'administrador'
-          )
-          or exists (
-            select 1
-            from public.panel_admins as admins
-            where admins.user_id = (select auth.uid())
-          )
-        )
-    )
+    and (select public.can_manage_workspace_avatar((storage.foldername(name))[1]))
   );
 
 drop policy if exists workspace_avatars_admin_delete on storage.objects;
@@ -314,25 +290,7 @@ create policy workspace_avatars_admin_delete
   to authenticated
   using (
     bucket_id = 'workspace-avatars'
-    and exists (
-      select 1
-      from public.workspaces
-      where workspaces.id::text = (storage.foldername(name))[1]
-        and (
-          exists (
-            select 1
-            from public.workspace_members as members
-            where members.workspace_id = workspaces.id
-              and members.user_id = (select auth.uid())
-              and members.role = 'administrador'
-          )
-          or exists (
-            select 1
-            from public.panel_admins as admins
-            where admins.user_id = (select auth.uid())
-          )
-        )
-    )
+    and (select public.can_manage_workspace_avatar((storage.foldername(name))[1]))
   );
 
 create or replace function public.sync_primary_admin()
@@ -1466,6 +1424,7 @@ revoke all on function public.create_workspace(text) from public;
 revoke all on function public.ensure_my_personal_workspace() from public;
 revoke all on function public.list_user_workspaces() from public;
 revoke all on function public.rename_workspace(uuid, text) from public;
+revoke all on function public.can_manage_workspace_avatar(text) from public;
 revoke all on function public.set_workspace_avatar(uuid, text) from public;
 revoke all on function public.archive_workspace(uuid) from public;
 revoke all on function public.restore_workspace(uuid) from public;
@@ -1484,6 +1443,7 @@ grant execute on function public.create_workspace(text) to authenticated;
 grant execute on function public.ensure_my_personal_workspace() to authenticated;
 grant execute on function public.list_user_workspaces() to authenticated;
 grant execute on function public.rename_workspace(uuid, text) to authenticated;
+grant execute on function public.can_manage_workspace_avatar(text) to authenticated;
 grant execute on function public.set_workspace_avatar(uuid, text) to authenticated;
 grant execute on function public.archive_workspace(uuid) to authenticated;
 grant execute on function public.restore_workspace(uuid) to authenticated;
