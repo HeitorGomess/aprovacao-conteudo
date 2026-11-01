@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 export interface DropdownOption {
   value: string;
@@ -11,6 +12,7 @@ interface DropdownSelectProps {
   options: DropdownOption[];
   value: string;
   onChange: (value: string) => void;
+  variant?: 'header' | 'field';
 }
 
 export default function DropdownSelect({
@@ -19,19 +21,54 @@ export default function DropdownSelect({
   options,
   value,
   onChange,
+  variant = 'header',
 }: DropdownSelectProps) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const selectedIndex = Math.max(options.findIndex((option) => option.value === value), 0);
+
+  useLayoutEffect(() => {
+    if (!open || variant !== 'field') return;
+
+    const updateMenuPosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const bounds = trigger.getBoundingClientRect();
+      const menuHeight = Math.min(options.length * 41 + 16, 280);
+      const spaceBelow = window.innerHeight - bounds.bottom;
+      const top = spaceBelow >= menuHeight + 8 || spaceBelow >= bounds.top
+        ? bounds.bottom + 4
+        : Math.max(8, bounds.top - menuHeight - 4);
+      setMenuPosition({
+        left: Math.max(8, Math.min(bounds.left, window.innerWidth - bounds.width - 8)),
+        top,
+        width: bounds.width,
+      });
+    };
+
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [open, options.length, variant]);
 
   useEffect(() => {
     if (!open) return;
 
     optionRefs.current[selectedIndex]?.focus();
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+      if (
+        event.target instanceof Node
+        && !rootRef.current?.contains(event.target)
+        && !menuRef.current?.contains(event.target)
+      ) setOpen(false);
     };
     document.addEventListener('mousedown', closeOnOutsideClick);
     return () => document.removeEventListener('mousedown', closeOnOutsideClick);
@@ -70,6 +107,35 @@ export default function DropdownSelect({
   }
 
   const selectedOption = options.find((option) => option.value === value);
+  const menu = open && (
+    <div
+      ref={menuRef}
+      className={`header-dropdown-menu${variant === 'field' ? ' field-dropdown-menu' : ''}`}
+      role="menu"
+      aria-label={ariaLabel}
+      onKeyDown={handleMenuKeyDown}
+      style={variant === 'field' && menuPosition ? {
+        position: 'fixed',
+        left: menuPosition.left,
+        top: menuPosition.top,
+        width: menuPosition.width,
+      } : undefined}
+    >
+      {options.map((option, index) => (
+        <button
+          key={option.value}
+          ref={(element) => { optionRefs.current[index] = element; }}
+          role="menuitemradio"
+          aria-checked={option.value === value}
+          onClick={() => chooseOption(option.value)}
+          type="button"
+        >
+          <span>{option.label}</span>
+          {option.value === value && <span className="header-dropdown-check" aria-hidden="true">✓</span>}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className={`header-dropdown ${className}`} ref={rootRef}>
@@ -86,23 +152,7 @@ export default function DropdownSelect({
         <span>{selectedOption?.label ?? ''}</span>
         <span className="header-dropdown-chevron" aria-hidden="true" />
       </button>
-      {open && (
-        <div className="header-dropdown-menu" role="menu" aria-label={ariaLabel} onKeyDown={handleMenuKeyDown}>
-          {options.map((option, index) => (
-            <button
-              key={option.value}
-              ref={(element) => { optionRefs.current[index] = element; }}
-              role="menuitemradio"
-              aria-checked={option.value === value}
-              onClick={() => chooseOption(option.value)}
-              type="button"
-            >
-              <span>{option.label}</span>
-              {option.value === value && <span className="header-dropdown-check" aria-hidden="true">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      {variant === 'field' && menuPosition ? createPortal(menu, document.body) : menu}
     </div>
   );
 }

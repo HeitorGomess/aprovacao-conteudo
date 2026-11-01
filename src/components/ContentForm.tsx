@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { Content, ContentFormData, ContentStatus, ReviewComment } from '../features/content-approval/types';
 import AttachmentImage from './AttachmentImage';
+import DropdownSelect from './DropdownSelect';
 
 interface ContentFormProps {
   initial?: Content | null;
@@ -190,24 +191,39 @@ export default function ContentForm({
                 Data de publicação
                 <input type="date" value={form.date} onChange={(event) => update('date', event.target.value)} required />
               </label>
-              <label>
-                Canal
-                <select value={form.channel} onChange={(event) => update('channel', event.target.value)}>
-                  {channels.map((channel) => <option key={channel.value} value={channel.value}>{channel.label}</option>)}
-                </select>
-              </label>
-              <label>
-                Formato
-                <select value={form.format} onChange={(event) => update('format', event.target.value)}>
-                  {formats.map((format) => <option key={format}>{format}</option>)}
-                </select>
-              </label>
-              <label>
-                Status
-                <select value={form.status} onChange={(event) => update('status', event.target.value as ContentStatus)}>
-                  {statuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                </select>
-              </label>
+              <div className="content-form-field">
+                <span>Canal</span>
+                <DropdownSelect
+                  ariaLabel="Canal"
+                  className="content-form-dropdown"
+                  variant="field"
+                  value={form.channel}
+                  onChange={(value) => update('channel', value)}
+                  options={channels}
+                />
+              </div>
+              <div className="content-form-field">
+                <span>Formato</span>
+                <DropdownSelect
+                  ariaLabel="Formato"
+                  className="content-form-dropdown"
+                  variant="field"
+                  value={form.format}
+                  onChange={(value) => update('format', value)}
+                  options={formats.map((format) => ({ value: format, label: format }))}
+                />
+              </div>
+              <div className="content-form-field">
+                <span>Status</span>
+                <DropdownSelect
+                  ariaLabel="Status"
+                  className="content-form-dropdown"
+                  variant="field"
+                  value={form.status}
+                  onChange={(value) => update('status', value as ContentStatus)}
+                  options={statuses}
+                />
+              </div>
             </div>
             <label>
               Link
