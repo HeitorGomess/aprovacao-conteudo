@@ -39,6 +39,7 @@ import { getChannelLabel } from './features/content-approval/contentLabels';
 import type { Content, ContentFormData, ContentStatus, ReviewComment } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
+type AppRoute = 'dashboard' | 'admin' | 'team' | 'profile';
 const VIEW_AS_STORAGE_PREFIX = 'your-space:view-as:';
 
 const statusLabels: Record<ContentStatus, string> = {
@@ -49,6 +50,14 @@ const statusLabels: Record<ContentStatus, string> = {
 };
 
 const statuses = Object.keys(statusLabels) as ContentStatus[];
+
+function getAppRoute(): AppRoute {
+  const searchParams = new URLSearchParams(window.location.search);
+  if (searchParams.get('admin') === '1') return 'admin';
+  if (searchParams.get('team') === '1') return 'team';
+  if (searchParams.get('profile') === '1') return 'profile';
+  return 'dashboard';
+}
 
 function clearStoredViewAsRoles(): void {
   const keys: string[] = [];
@@ -69,22 +78,6 @@ function getErrorMessage(error: unknown): string {
   return 'Ocorreu um erro inesperado.';
 }
 
-function getProfilePageUrl(): string {
-  const url = new URL(window.location.href);
-  url.searchParams.delete('admin');
-  url.searchParams.delete('team');
-  url.searchParams.set('profile', '1');
-  return url.toString();
-}
-
-function getPanelPageUrl(): string {
-  const url = new URL(window.location.href);
-  url.searchParams.delete('admin');
-  url.searchParams.delete('team');
-  url.searchParams.delete('profile');
-  return url.toString();
-}
-
 function localMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
@@ -95,14 +88,6 @@ function dateLabel(date: string): string {
     month: '2-digit',
     year: 'numeric',
   });
-}
-
-function getWorkspaceTeamUrl(): string {
-  const url = new URL(window.location.href);
-  url.searchParams.delete('admin');
-  url.searchParams.delete('profile');
-  url.searchParams.set('team', '1');
-  return url.toString();
 }
 
 function updateWorkspaceUrl(slug: string): void {
@@ -120,9 +105,10 @@ function App() {
     : demoRoleParam === 'admin'
       ? 'administrador'
       : 'programador';
-  const adminView = new URLSearchParams(window.location.search).get('admin') === '1';
-  const teamView = new URLSearchParams(window.location.search).get('team') === '1';
-  const profileView = new URLSearchParams(window.location.search).get('profile') === '1';
+  const [route, setRoute] = useState<AppRoute>(getAppRoute);
+  const adminView = route === 'admin';
+  const teamView = route === 'team';
+  const profileView = route === 'profile';
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<WorkspaceRole | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -166,6 +152,12 @@ function App() {
     new URLSearchParams(window.location.search).get('auth') === 'confirmed'
       || new URLSearchParams(window.location.hash.slice(1)).get('type') === 'signup',
   );
+
+  useEffect(() => {
+    const syncRoute = () => setRoute(getAppRoute());
+    window.addEventListener('popstate', syncRoute);
+    return () => window.removeEventListener('popstate', syncRoute);
+  }, []);
 
   useEffect(() => {
     clearStoredViewAsRoles();
@@ -367,7 +359,7 @@ function App() {
       setLoading(false);
       return;
     }
-    if (!activeWorkspace || adminView || teamView) {
+    if (!activeWorkspace) {
       setContents([]);
       setLoading(false);
       return;
@@ -398,7 +390,7 @@ function App() {
       active = false;
       unsubscribe?.();
     };
-  }, [activeWorkspace?.id, adminView, demoMode, session, teamView]);
+  }, [activeWorkspace?.id, demoMode, session]);
 
   const monthContents = useMemo(
     () => contents.filter((content) => (
@@ -748,18 +740,26 @@ function App() {
     return typeof avatarUrl === 'string' ? avatarUrl : '';
   }
 
+  function navigateToRoute(nextRoute: AppRoute): void {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('admin');
+    url.searchParams.delete('team');
+    url.searchParams.delete('profile');
+    if (nextRoute !== 'dashboard') url.searchParams.set(nextRoute, '1');
+    window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    setRoute(nextRoute);
+  }
+
   function openPanelPage(): void {
-    window.location.assign(getPanelPageUrl());
+    navigateToRoute('dashboard');
   }
 
   function openProfileSettings(): void {
-    window.location.assign(getProfilePageUrl());
+    navigateToRoute('profile');
   }
 
-  function navigateBackFromWorkspacePage(parameter: 'admin' | 'team'): void {
-    const url = new URL(window.location.href);
-    url.searchParams.delete(parameter);
-    window.location.assign(url);
+  function navigateBackFromWorkspacePage(_parameter: 'admin' | 'team'): void {
+    navigateToRoute('dashboard');
   }
 
   if (authLoading) {
@@ -824,7 +824,7 @@ function App() {
             <BrandLockup className="auth-card-brand" />
             <h1>Acesso restrito</h1>
             <p className="muted">Somente o administrador geral pode gerenciar as contas globais.</p>
-            <button className="button" onClick={() => window.location.assign(window.location.pathname)} type="button">
+            <button className="button" onClick={() => navigateToRoute('dashboard')} type="button">
               Voltar ao painel
             </button>
           </section>
@@ -867,7 +867,7 @@ function App() {
         demoMode={demoMode}
         onChangeWorkspace={handleWorkspaceChange}
         onCreateWorkspace={handleCreateWorkspace}
-        onManageTeam={() => window.location.assign(getWorkspaceTeamUrl())}
+        onManageTeam={() => navigateToRoute('team')}
         onOpenPanel={openPanelPage}
         onOpenSettings={() => undefined}
         onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
@@ -942,7 +942,7 @@ function App() {
         onArchiveWorkspace={handleArchiveWorkspace}
         onRestoreWorkspace={handleRestoreWorkspace}
         onDeleteWorkspace={handleDeleteArchivedWorkspace}
-        onManageCompany={() => window.location.assign(getWorkspaceTeamUrl())}
+        onManageCompany={() => navigateToRoute('team')}
         onOpenPanel={openPanelPage}
         onOpenSettings={openProfileSettings}
         onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
@@ -1016,7 +1016,7 @@ function App() {
             }
             avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
             onOpenSettings={openProfileSettings}
-            onManageCompany={canManageWorkspace ? () => window.location.assign(getWorkspaceTeamUrl()) : undefined}
+            onManageCompany={canManageWorkspace ? () => navigateToRoute('team') : undefined}
             onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
           />
         </div>
