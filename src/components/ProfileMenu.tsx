@@ -57,7 +57,7 @@ export default function ProfileMenu({
           </span>
         )}
         <span>Perfil</span>
-        <span className="profile-menu-chevron" aria-hidden="true">⌄</span>
+        <span className="profile-menu-chevron" aria-hidden="true" />
       </button>
       {open && (
         <div className="profile-menu-popover" role="menu" aria-label="Menu do perfil">

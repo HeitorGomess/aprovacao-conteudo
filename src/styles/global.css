@@ -126,14 +126,17 @@ a:hover { text-decoration: underline; }
 .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
 .user-menu { gap: 12px; color: var(--muted); font-size: 13px; }
 .user-menu span { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.view-as-selector { display: flex; align-items: center; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
-.view-as-selector select { min-height: 38px; max-width: 150px; padding: 6px 26px 6px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; }
+.view-as-selector { position: relative; display: flex; align-items: center; gap: 7px; color: var(--ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.view-as-selector::after { position: absolute; top: 50%; right: 12px; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); content: ""; pointer-events: none; transform: translateY(-70%) rotate(45deg); }
+.view-as-selector select { min-height: 38px; max-width: 150px; padding: 6px 32px 6px 12px; appearance: none; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; }
 .review-mode-banner { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--surface-subtle); font-size: 13px; }
 .review-mode-banner button { padding: 0; border: 0; color: var(--accent); background: transparent; font-weight: 600; }
 .review-mode-banner button:hover { text-decoration: underline; }
 .workspace-header-main, .workspace-admin-brand { display: flex; min-width: 0; align-items: center; gap: 22px; }
 .workspace-controls { display: flex; min-width: 0; align-items: center; flex-wrap: nowrap; gap: 8px; }
-.workspace-select { max-width: 220px; min-height: 38px; padding: 7px 30px 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-weight: 600; }
+.workspace-controls > label { position: relative; display: flex; min-width: 0; }
+.workspace-controls > label::after { position: absolute; top: 50%; right: 14px; width: 6px; height: 6px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); content: ""; pointer-events: none; transform: translateY(-70%) rotate(45deg); }
+.workspace-select { max-width: 220px; min-height: 38px; padding: 7px 34px 7px 10px; appearance: none; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-weight: 600; }
 .workspace-create-button { white-space: nowrap; }
 .workspace-modal-backdrop { z-index: 20; }
 .workspace-modal { width: min(100% - 32px, 480px); overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-workspace); }
@@ -152,11 +155,11 @@ a:hover { text-decoration: underline; }
 .workspace-delete-modal .button-danger { border-color: var(--danger-button-line); background: var(--danger-button-surface); }
 .workspace-delete-modal .form-error { padding: 10px; border-radius: 7px; background: var(--error-surface); }
 .profile-menu { position: relative; }
-.profile-menu-trigger { display: inline-flex; min-height: 40px; align-items: center; gap: 9px; padding: 4px 11px 4px 5px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 600; }
+.profile-menu-trigger { display: inline-flex; min-height: 40px; align-items: center; gap: 8px; padding: 4px 14px 4px 5px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 600; }
 .profile-menu-trigger:hover, .profile-menu-trigger[aria-expanded="true"] { border-color: var(--hover-line); background: var(--surface-soft); }
 .profile-menu-avatar { display: grid; width: 30px; height: 30px; flex: none; place-items: center; overflow: hidden; border-radius: 50%; object-fit: cover; }
 .profile-menu-avatar-fallback { color: var(--accent); background: var(--avatar-bg); }
-.profile-menu-chevron { color: var(--muted); font-size: 15px; }
+.profile-menu-chevron { width: 7px; height: 7px; flex: none; margin: -3px 1px 0 2px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: rotate(45deg); }
 .profile-menu-popover { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; display: grid; width: 220px; gap: 3px; padding: 7px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-menu); }
 .profile-menu-popover > button { min-height: 38px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); text-align: left; }
 .profile-menu-popover > button:hover { background: var(--surface-soft); }
