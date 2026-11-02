@@ -50,7 +50,7 @@ export default function ProfileMenu({
         type="button"
       >
         {avatarUrl ? (
-          <img className="profile-menu-avatar" src={avatarUrl} alt="" />
+          <img className="profile-menu-avatar" src={avatarUrl} alt="" decoding="async" />
         ) : (
           <span className="profile-menu-avatar profile-menu-avatar-fallback" aria-hidden="true">
             {displayName.slice(0, 1).toLocaleUpperCase('pt-BR') || 'P'}

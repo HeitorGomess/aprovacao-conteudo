@@ -153,6 +153,8 @@ alter table public.posts
   add column if not exists workspace_id uuid references public.workspaces(id) on delete cascade;
 
 create index if not exists posts_workspace_id_idx on public.posts (workspace_id);
+create index if not exists posts_workspace_date_idx
+  on public.posts (workspace_id, ((data ->> 'date')));
 create index if not exists workspace_members_user_id_idx on public.workspace_members (user_id);
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

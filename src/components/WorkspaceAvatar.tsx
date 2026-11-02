@@ -12,6 +12,7 @@ export default function WorkspaceAvatar({ url = '', fallback, size = 'small' }: 
         <img
           alt=""
           src={url}
+          decoding="async"
           onError={(event) => event.currentTarget.remove()}
         />
       )}

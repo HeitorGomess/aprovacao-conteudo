@@ -1,5 +1,6 @@
 import { createClient, type RealtimeChannel, type User } from '@supabase/supabase-js';
 import type { Content, ContentStatus } from './types';
+import { optimizeAvatarImage } from './optimizeAvatarImage';
 
 export type EditorRole = 'programador' | 'revisor';
 export type AccountRole = EditorRole | 'sem_acesso' | 'administrador';
@@ -54,23 +55,67 @@ export const supabase = createClient(
 function getWorkspaceAvatarUrl(path: string | null | undefined): string {
   if (!path) return '';
   const { data } = supabase.storage.from('workspace-avatars').getPublicUrl(path);
-  return `${data.publicUrl}?v=${Date.now()}`;
+  return data.publicUrl;
 }
 
-interface ContentRow {
+interface ContentMetadataRow {
+  id: string;
+  date: string | null;
+  channel: string | null;
+  status: ContentStatus | null;
+}
+
+interface ContentMonthRow {
   id: string;
   data: Omit<Content, 'id'>;
 }
 
-export async function fetchContents(workspaceId: string): Promise<Content[]> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('id,data')
-    .eq('workspace_id', workspaceId)
-    .order('id');
+function monthDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+}
 
-  if (error) throw error;
-  return ((data ?? []) as ContentRow[]).map((row) => ({ ...row.data, id: row.id }));
+export async function fetchContents(workspaceId: string, month: Date): Promise<Content[]> {
+  const monthStart = monthDateKey(month);
+  const nextMonthStart = monthDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 1));
+  const [metadataResult, monthResult] = await Promise.all([
+    supabase
+      .from('posts')
+      .select('id,date:data->>date,channel:data->>channel,status:data->>status')
+      .eq('workspace_id', workspaceId)
+      .order('id'),
+    supabase
+      .from('posts')
+      .select('id,data')
+      .eq('workspace_id', workspaceId)
+      .gte('data->>date', monthStart)
+      .lt('data->>date', nextMonthStart)
+      .order('id'),
+  ]);
+
+  if (metadataResult.error) throw metadataResult.error;
+  if (monthResult.error) throw monthResult.error;
+
+  const monthContents = new Map(
+    ((monthResult.data ?? []) as ContentMonthRow[])
+      .map((row) => [row.id, row.data]),
+  );
+  return ((metadataResult.data ?? []) as ContentMetadataRow[]).map((row) => ({
+    ...(monthContents.get(row.id) || {
+      title: '',
+      date: row.date || '',
+      channel: row.channel || '',
+      format: '',
+      link: '',
+      caption: '',
+      note: '',
+      status: row.status || 'rascunho',
+      coverData: '',
+      history: [],
+      reviewComments: [],
+      updatedAt: '',
+    }),
+    id: row.id,
+  }));
 }
 
 export async function listUserWorkspaces(): Promise<WorkspaceSummary[]> {
@@ -166,22 +211,22 @@ export async function saveWorkspaceAvatar(
 ): Promise<WorkspaceAvatarUpdate> {
   let avatarPath: string | null = null;
   if (avatarFile) {
+    const optimizedFile = await optimizeAvatarImage(avatarFile);
     const extensionByType: Record<string, string> = {
       'image/jpeg': 'jpg',
       'image/png': 'png',
       'image/gif': 'gif',
       'image/webp': 'webp',
     };
-    const extension = extensionByType[avatarFile.type];
+    const extension = extensionByType[optimizedFile.type];
     if (!extension) throw new Error('Escolha uma imagem JPG, PNG, GIF ou WebP.');
-    if (avatarFile.size > 5 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 5 MB.');
 
     avatarPath = `${workspaceId}/${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage
       .from('workspace-avatars')
-      .upload(avatarPath, avatarFile, {
-        cacheControl: '3600',
-        contentType: avatarFile.type,
+      .upload(avatarPath, optimizedFile, {
+        cacheControl: '31536000',
+        contentType: optimizedFile.type,
         upsert: false,
       });
     if (uploadError) {
@@ -257,11 +302,12 @@ export async function saveUserProfile(
     ? user.user_metadata.avatar_url
     : '';
   if (avatarFile) {
+    const optimizedFile = await optimizeAvatarImage(avatarFile);
     const { error: uploadError } = await supabase.storage
       .from('profile-avatars')
-      .upload(`${user.id}/avatar`, avatarFile, {
-        cacheControl: '3600',
-        contentType: avatarFile.type,
+      .upload(`${user.id}/avatar`, optimizedFile, {
+        cacheControl: '31536000',
+        contentType: optimizedFile.type,
         upsert: true,
       });
     if (uploadError) throw new Error(`Não foi possível enviar a foto: ${uploadError.message}`);
@@ -425,6 +471,7 @@ export async function deleteContent(workspaceId: string, id: string): Promise<vo
 
 export function subscribeToContents(
   workspaceId: string,
+  month: Date,
   onChange: (contents: Content[]) => void,
   onError: (error: Error) => void,
 ): () => void {
@@ -437,7 +484,7 @@ export function subscribeToContents(
       table: 'posts',
       filter: `workspace_id=eq.${workspaceId}`,
     }, () => {
-      fetchContents(workspaceId)
+      fetchContents(workspaceId, month)
         .then((contents) => {
           if (active) onChange(contents);
         })

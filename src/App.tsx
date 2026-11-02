@@ -1,18 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import AdminDashboard from './components/AdminDashboard';
 import BrandLockup from './components/BrandLockup';
 import ContentCard from './components/ContentCard';
-import ContentForm from './components/ContentForm';
 import DropdownSelect from './components/DropdownSelect';
 import LoginForm from './components/LoginForm';
 import ProfileMenu from './components/ProfileMenu';
 import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
 import ThemeToggle from './components/ThemeToggle';
-import UserProfilePage from './components/UserProfilePage';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
-import WorkspaceTeamDashboard from './components/WorkspaceTeamDashboard';
 import {
   createWorkspace,
   archiveWorkspace,
@@ -46,6 +42,10 @@ import type { Content, ContentFormData, ContentStatus, ReviewComment } from './f
 type ViewMode = 'cards' | 'calendar' | 'table';
 type AppRoute = 'dashboard' | 'admin' | 'team' | 'profile';
 const VIEW_AS_STORAGE_PREFIX = 'your-space:view-as:';
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const ContentForm = lazy(() => import('./components/ContentForm'));
+const UserProfilePage = lazy(() => import('./components/UserProfilePage'));
+const WorkspaceTeamDashboard = lazy(() => import('./components/WorkspaceTeamDashboard'));
 
 const statusLabels: Record<ContentStatus, string> = {
   rascunho: 'Rascunho',
@@ -325,11 +325,15 @@ function App() {
 
     async function loadUserWorkspaces() {
       try {
-        const personalWorkspaceReady = await ensurePersonalWorkspace();
-        const [workspaceResult, adminResult] = await Promise.all([
+        const [personalWorkspaceReady, initialWorkspaceResult, adminResult] = await Promise.all([
+          ensurePersonalWorkspace(),
           listUserWorkspaces(),
           verifyPanelAdmin(userId),
         ]);
+        let workspaceResult = initialWorkspaceResult;
+        if (personalWorkspaceReady && !workspaceResult.some((workspace) => workspace.isPersonal)) {
+          workspaceResult = await listUserWorkspaces();
+        }
         if (!active) return;
         if (!personalWorkspaceReady && workspaceResult.length === 0) {
           throw new Error('A criação automática do espaço pessoal ainda não foi configurada. Execute o arquivo completo SUPABASE_SETUP.sql no SQL Editor do Supabase.');
@@ -391,12 +395,13 @@ function App() {
     let unsubscribe: (() => void) | undefined;
     setLoading(true);
     setError('');
-    fetchContents(activeWorkspace.id)
+    fetchContents(activeWorkspace.id, month)
       .then((loadedContents) => {
         if (!active) return;
         setContents(loadedContents);
         unsubscribe = subscribeToContents(
           activeWorkspace.id,
+          month,
           setContents,
           (reason) => setError(`Problema na sincronização: ${getErrorMessage(reason)}`),
         );
@@ -412,7 +417,7 @@ function App() {
       active = false;
       unsubscribe?.();
     };
-  }, [activeWorkspace?.id, demoMode, session]);
+  }, [activeWorkspace?.id, demoMode, month, session]);
 
   const monthContents = useMemo(
     () => contents.filter((content) => (
@@ -874,11 +879,13 @@ function App() {
     }
 
     return (
-      <AdminDashboard
-        demoMode={demoMode}
-        onExitDemo={exitDemoMode}
-        onBack={() => navigateBackFromWorkspacePage('admin')}
-      />
+      <Suspense fallback={<main className="auth-page"><ThemeToggle className="auth-theme-toggle" /><p className="muted">Carregando…</p></main>}>
+        <AdminDashboard
+          demoMode={demoMode}
+          onExitDemo={exitDemoMode}
+          onBack={() => navigateBackFromWorkspacePage('admin')}
+        />
+      </Suspense>
     );
   }
   if (profileView) {
@@ -897,26 +904,28 @@ function App() {
       ? user.user_metadata.personal_space_name.trim()
       : 'Your Space';
     return (
-      <UserProfilePage
-        user={user}
-        email={userEmail}
-        fullName={userFullName}
-        avatarUrl={userAvatarUrl}
-        personalSpaceName={personalSpaceName}
-        allowPersonalSpaceRename={Boolean(activeWorkspace?.isPersonal && !demoMode)}
-        workspaces={workspaces}
-        activeWorkspaceId={activeWorkspace?.id || ''}
-        canManage={canManageWorkspace}
-        demoMode={demoMode}
-        onChangeWorkspace={handleWorkspaceChange}
-        onCreateWorkspace={handleCreateWorkspace}
-        onManageTeam={() => navigateToRoute('team')}
-        onOpenPanel={openPanelPage}
-        onOpenSettings={() => undefined}
-        onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
-        onSaveProfile={handleSaveProfile}
-        onDeleteAccount={handleDeleteAccount}
-      />
+      <Suspense fallback={<main className="auth-page"><ThemeToggle className="auth-theme-toggle" /><p className="muted">Carregando…</p></main>}>
+        <UserProfilePage
+          user={user}
+          email={userEmail}
+          fullName={userFullName}
+          avatarUrl={userAvatarUrl}
+          personalSpaceName={personalSpaceName}
+          allowPersonalSpaceRename={Boolean(activeWorkspace?.isPersonal && !demoMode)}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspace?.id || ''}
+          canManage={canManageWorkspace}
+          demoMode={demoMode}
+          onChangeWorkspace={handleWorkspaceChange}
+          onCreateWorkspace={handleCreateWorkspace}
+          onManageTeam={() => navigateToRoute('team')}
+          onOpenPanel={openPanelPage}
+          onOpenSettings={() => undefined}
+          onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
+          onSaveProfile={handleSaveProfile}
+          onDeleteAccount={handleDeleteAccount}
+        />
+      </Suspense>
     );
   }
   if (!activeWorkspace && workspaces.length === 0 && !demoMode) {
@@ -955,30 +964,32 @@ function App() {
     }
 
     return (
-      <WorkspaceTeamDashboard
-        demoMode={demoMode}
-        workspaceId={activeWorkspace?.id || 'demo-workspace'}
-        workspaceSlug={activeWorkspace?.slug || 'your-space'}
-        workspaceName={activeWorkspace?.name || 'Your Space'}
-        workspaces={workspaces}
-        activeWorkspaceId={activeWorkspace?.id || ''}
-        canManage={canManageWorkspace}
-        isSystemAdmin={demoMode ? demoRole === 'administrador' : isSystemAdmin}
-        profileName={session?.user.user_metadata?.full_name || ''}
-        avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
-        onChangeWorkspace={handleWorkspaceChange}
-        onCreateWorkspace={handleCreateWorkspace}
-        onRenameWorkspace={handleRenameWorkspace}
-        onSaveWorkspaceAvatar={handleSaveWorkspaceAvatar}
-        onArchiveWorkspace={handleArchiveWorkspace}
-        onRestoreWorkspace={handleRestoreWorkspace}
-        onDeleteWorkspace={handleDeleteArchivedWorkspace}
-        onManageCompany={() => navigateToRoute('team')}
-        onOpenPanel={openPanelPage}
-        onOpenSettings={openProfileSettings}
-        onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
-        onExitDemo={exitDemoMode}
-      />
+      <Suspense fallback={<main className="auth-page"><ThemeToggle className="auth-theme-toggle" /><p className="muted">Carregando…</p></main>}>
+        <WorkspaceTeamDashboard
+          demoMode={demoMode}
+          workspaceId={activeWorkspace?.id || 'demo-workspace'}
+          workspaceSlug={activeWorkspace?.slug || 'your-space'}
+          workspaceName={activeWorkspace?.name || 'Your Space'}
+          workspaces={workspaces}
+          activeWorkspaceId={activeWorkspace?.id || ''}
+          canManage={canManageWorkspace}
+          isSystemAdmin={demoMode ? demoRole === 'administrador' : isSystemAdmin}
+          profileName={session?.user.user_metadata?.full_name || ''}
+          avatarUrl={typeof session?.user.user_metadata?.avatar_url === 'string' ? session.user.user_metadata.avatar_url : ''}
+          onChangeWorkspace={handleWorkspaceChange}
+          onCreateWorkspace={handleCreateWorkspace}
+          onRenameWorkspace={handleRenameWorkspace}
+          onSaveWorkspaceAvatar={handleSaveWorkspaceAvatar}
+          onArchiveWorkspace={handleArchiveWorkspace}
+          onRestoreWorkspace={handleRestoreWorkspace}
+          onDeleteWorkspace={handleDeleteArchivedWorkspace}
+          onManageCompany={() => navigateToRoute('team')}
+          onOpenPanel={openPanelPage}
+          onOpenSettings={openProfileSettings}
+          onSignOut={() => demoMode ? exitDemoMode() : void handleLogout()}
+          onExitDemo={exitDemoMode}
+        />
+      </Suspense>
     );
   }
   if (!activeRole) {
@@ -1261,16 +1272,18 @@ function App() {
       )}
 
       {formOpen && !isReviewer && (
-        <ContentForm
-          key={editing?.id || newContentDate || 'new-content'}
-          initial={editing}
-          initialDate={newContentDate}
-          isAdmin={canManageWorkspace}
-          onClose={() => { setFormOpen(false); setEditing(null); }}
-          onDelete={handleDelete}
-          onResetReviewComments={handleResetReviewComments}
-          onSubmit={handleSave}
-        />
+        <Suspense fallback={null}>
+          <ContentForm
+            key={editing?.id || newContentDate || 'new-content'}
+            initial={editing}
+            initialDate={newContentDate}
+            isAdmin={canManageWorkspace}
+            onClose={() => { setFormOpen(false); setEditing(null); }}
+            onDelete={handleDelete}
+            onResetReviewComments={handleResetReviewComments}
+            onSubmit={handleSave}
+          />
+        </Suspense>
       )}
       {reviewing && (
         <ReviewDecisionModal

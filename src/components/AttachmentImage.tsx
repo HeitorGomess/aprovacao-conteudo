@@ -47,7 +47,7 @@ export default function AttachmentImage({
           setIsOpen(true);
         }}
       >
-        <img className={imageClassName} src={src} alt={alt} loading="lazy" />
+        <img className={imageClassName} src={src} alt={alt} loading="lazy" decoding="async" />
       </button>
       {isOpen && createPortal(
         <div

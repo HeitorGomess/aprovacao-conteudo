@@ -17,7 +17,9 @@ export default function AccountAvatar({ email, avatarUrl = '' }: AccountAvatarPr
 
   return (
     <span className="account-avatar" aria-hidden="true">
-      {avatarUrl && !imageFailed && <img src={avatarUrl} alt="" onError={handleImageError} />}
+      {avatarUrl && !imageFailed && (
+        <img src={avatarUrl} alt="" loading="lazy" decoding="async" onError={handleImageError} />
+      )}
       <span>{email.slice(0, 1).toUpperCase()}</span>
     </span>
   );
