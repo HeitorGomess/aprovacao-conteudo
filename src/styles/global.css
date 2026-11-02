@@ -119,6 +119,7 @@ a:hover { text-decoration: underline; }
 .brand-lockup-light .brand-tagline { color: var(--brand-muted-on-dark); }
 .brand-mark { display: grid; width: 42px; height: 42px; place-items: center; flex: none; overflow: hidden; border-radius: 12px; background: var(--brand-mark-bg); }
 .brand-mark svg { display: block; width: 76%; height: 76%; overflow: visible; }
+.brand-mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .brand-mark path { fill: none; stroke: var(--brand-mark-accent); stroke-linecap: round; stroke-linejoin: round; stroke-width: 9; }
 .brand-mark circle { fill: var(--primary-ink); }
 .eyebrow { margin: 0 0 4px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }

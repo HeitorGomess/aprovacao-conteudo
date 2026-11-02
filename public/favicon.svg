@@ -1,18 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <style>
-    :root {
-      --mark-bg: #1f604c;
-      --mark-accent: #d3efab;
-      --mark-dot: #fff;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --mark-bg: #1F5C46;
-        --mark-accent: #8FD1A8;
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Camada_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 120 120">
+  <!-- Generator: Adobe Illustrator 30.6.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 109)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #d6efbf;
       }
-    }
-  </style>
-  <rect width="100" height="100" rx="22" fill="var(--mark-bg)"/>
-  <path d="M29 27 50 53 71 27M50 53v25" fill="none" stroke="var(--mark-accent)" stroke-linecap="round" stroke-linejoin="round" stroke-width="9"/>
-  <circle cx="50" cy="24" r="7" fill="var(--mark-dot)"/>
+
+      .st1 {
+        fill: #1f5c46;
+      }
+    </style>
+  </defs>
+  <rect class="st0" width="120" height="120"/>
+  <rect class="st1" x="19.92" y="27.7" width="80.15" height="65.94" rx="9.55" ry="9.55"/>
+  <g>
+    <path class="st0" d="M64.81,68.88h-9.62c-1.86,0-3.36-1.51-3.36-3.36s1.51-3.36,3.36-3.36h9.62c5.44,0,9.86-4.42,9.86-9.86s-4.42-9.86-9.86-9.86h-9.62c-5.44,0-9.86,4.42-9.86,9.86,0,1.86-1.51,3.36-3.36,3.36s-3.36-1.51-3.36-3.36c0-9.15,7.44-16.59,16.59-16.59h9.62c9.15,0,16.59,7.44,16.59,16.59s-7.44,16.59-16.59,16.59Z"/>
+    <path class="st0" d="M64.81,84.51h-9.62c-9.15,0-16.59-7.44-16.59-16.59s7.44-16.59,16.59-16.59c1.86,0,3.36,1.51,3.36,3.36s-1.51,3.36-3.36,3.36c-5.44,0-9.86,4.42-9.86,9.86s4.42,9.86,9.86,9.86h9.62c5.44,0,9.86-4.42,9.86-9.86,0-1.86,1.51-3.36,3.36-3.36s3.36,1.51,3.36,3.36c0,9.15-7.44,16.59-16.59,16.59Z"/>
+  </g>
 </svg>

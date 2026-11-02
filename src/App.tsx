@@ -9,6 +9,7 @@ import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
 import ThemeToggle from './components/ThemeToggle';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
+import { getWorkspaceDisplayName } from './features/content-approval/workspaceLabels';
 import {
   createWorkspace,
   archiveWorkspace,
@@ -195,7 +196,7 @@ function App() {
     if (demoMode) {
       const demoWorkspace: WorkspaceSummary = {
         id: 'demo-workspace',
-        name: 'Your Space',
+        name: 'Space Social',
         slug: 'your-space',
         role: demoRole === 'administrador' ? 'administrador' : demoRole,
         isOwner: demoRole === 'administrador',
@@ -902,7 +903,7 @@ function App() {
       : typeof user?.user_metadata?.personal_space_name === 'string'
       && user.user_metadata.personal_space_name.trim()
       ? user.user_metadata.personal_space_name.trim()
-      : 'Your Space';
+      : 'Space Social';
     return (
       <Suspense fallback={<main className="auth-page"><ThemeToggle className="auth-theme-toggle" /><p className="muted">Carregando…</p></main>}>
         <UserProfilePage
@@ -969,7 +970,7 @@ function App() {
           demoMode={demoMode}
           workspaceId={activeWorkspace?.id || 'demo-workspace'}
           workspaceSlug={activeWorkspace?.slug || 'your-space'}
-          workspaceName={activeWorkspace?.name || 'Your Space'}
+          workspaceName={activeWorkspace ? getWorkspaceDisplayName(activeWorkspace) : 'Space Social'}
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspace?.id || ''}
           canManage={canManageWorkspace}

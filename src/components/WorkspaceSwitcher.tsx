@@ -3,6 +3,7 @@ import BrandLockup from './BrandLockup';
 import DeleteArchivedWorkspaceDialog from './DeleteArchivedWorkspaceDialog';
 import DropdownSelect from './DropdownSelect';
 import type { WorkspaceSummary } from '../features/content-approval/contentService';
+import { getWorkspaceDisplayName } from '../features/content-approval/workspaceLabels';
 
 function getErrorMessage(reason: unknown): string {
   if (reason instanceof Error) return reason.message;
@@ -63,12 +64,15 @@ export default function WorkspaceSwitcher({
           className="workspace-header-dropdown"
           value={activeWorkspaceId}
           onChange={onChange}
-          options={workspaces.filter((workspace) => !workspace.archivedAt).map((workspace) => ({
-            value: workspace.id,
-            label: workspace.name,
-            avatarUrl: workspace.avatarUrl,
-            avatarFallback: getWorkspaceInitials(workspace.name),
-          }))}
+          options={workspaces.filter((workspace) => !workspace.archivedAt).map((workspace) => {
+            const displayName = getWorkspaceDisplayName(workspace);
+            return {
+              value: workspace.id,
+              label: displayName,
+              avatarUrl: workspace.avatarUrl,
+              avatarFallback: getWorkspaceInitials(displayName),
+            };
+          })}
         />
         {canManage && onManageTeam && (
           <button className="button" onClick={onManageTeam} type="button">Gerenciar empresa</button>

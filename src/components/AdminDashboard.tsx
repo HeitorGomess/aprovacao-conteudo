@@ -134,8 +134,8 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
 
       <section className="admin-intro admin-intro-row">
         <div>
-          <p className="eyebrow">EMPRESA YOUR SPACE</p>
-          <h2>Acessos do Your Space</h2>
+          <p className="eyebrow">EMPRESA SPACE SOCIAL</p>
+          <h2>Acessos do Space Social</h2>
           <p>Defina o perfil das contas nesta empresa. Para gerenciar outras empresas, volte ao painel e abra a opção Equipe.</p>
         </div>
         {!demoMode && (
@@ -150,10 +150,10 @@ export default function AdminDashboard({ demoMode, onBack, onExitDemo }: AdminDa
         )}
       </section>
 
-      <section className="permission-legend" aria-label="Descrição dos perfis do Your Space">
-        <article><strong>Programador</strong><span>Cria, importa, edita e exclui publicações no Your Space.</span></article>
-        <article><strong>Revisor</strong><span>Analisa publicações em revisão e registra pareceres no Your Space.</span></article>
-        <article><strong>Sem acesso</strong><span>Não tem acesso ao Your Space. O perfil em outras empresas não é alterado.</span></article>
+      <section className="permission-legend" aria-label="Descrição dos perfis do Space Social">
+        <article><strong>Programador</strong><span>Cria, importa, edita e exclui publicações no Space Social.</span></article>
+        <article><strong>Revisor</strong><span>Analisa publicações em revisão e registra pareceres no Space Social.</span></article>
+        <article><strong>Sem acesso</strong><span>Não tem acesso ao Space Social. O perfil em outras empresas não é alterado.</span></article>
       </section>
 
       {error && <div className="notice" role="alert">{error}</div>}

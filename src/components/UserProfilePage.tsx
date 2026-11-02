@@ -48,7 +48,7 @@ export default function UserProfilePage({
   email,
   fullName,
   avatarUrl: initialAvatarUrl = '',
-  personalSpaceName: initialPersonalSpaceName = 'Your Space',
+  personalSpaceName: initialPersonalSpaceName = 'Space Social',
   allowPersonalSpaceRename = false,
   workspaces,
   activeWorkspaceId,

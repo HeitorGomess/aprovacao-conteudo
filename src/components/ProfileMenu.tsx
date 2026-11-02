@@ -63,7 +63,7 @@ export default function ProfileMenu({
         <div className="profile-menu-popover" role="menu" aria-label="Menu do perfil">
           <div className="profile-menu-heading">
             <strong>{displayName}</strong>
-            <span>Conta Your Space</span>
+            <span>Conta Space Social</span>
           </div>
           <button role="menuitem" onClick={() => run(onOpenSettings)} type="button">Configuração</button>
           {onManageCompany && (

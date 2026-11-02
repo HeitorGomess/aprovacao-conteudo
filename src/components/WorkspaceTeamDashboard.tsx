@@ -15,6 +15,7 @@ import {
   type WorkspaceAvatarUpdate,
   type WorkspaceSummary,
 } from '../features/content-approval/contentService';
+import { getWorkspaceDisplayName } from '../features/content-approval/workspaceLabels';
 
 interface WorkspaceTeamDashboardProps {
   demoMode: boolean;
@@ -462,7 +463,7 @@ export default function WorkspaceTeamDashboard({
                 return (
                   <div className="workspace-archived-row" key={workspace.id}>
                     <div>
-                      <strong>{workspace.name}</strong>
+                      <strong>{getWorkspaceDisplayName(workspace)}</strong>
                       <span>Conteúdos e equipe preservados</span>
                     </div>
                     {canRestore && (
