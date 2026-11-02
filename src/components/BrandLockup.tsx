@@ -9,7 +9,7 @@ export default function BrandLockup({ className = '', variant = 'default' }: Bra
   return (
     <div className={classes}>
       <span className="brand-mark" aria-hidden="true">
-        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" />
+        <img src={`${import.meta.env.BASE_URL}app-icon.svg`} alt="" />
       </span>
       <span className="brand-copy">
         <span className="brand-name">Space Social</span>
