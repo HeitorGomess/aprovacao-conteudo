@@ -26,9 +26,16 @@ export interface Content {
   note: string;
   status: ContentStatus;
   coverData: string;
+  additionalImages?: string[];
   history: StatusChange[];
   reviewComments?: ReviewComment[];
   updatedAt: string;
 }
 
 export type ContentFormData = Omit<Content, 'id' | 'history' | 'updatedAt'>;
+
+export const MAX_CONTENT_IMAGES = 20;
+
+export function getContentImages(content: Pick<Content, 'coverData' | 'additionalImages'>): string[] {
+  return [content.coverData, ...(content.additionalImages || [])].filter(Boolean);
+}

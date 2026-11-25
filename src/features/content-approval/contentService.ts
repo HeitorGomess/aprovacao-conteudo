@@ -58,13 +58,6 @@ function getWorkspaceAvatarUrl(path: string | null | undefined): string {
   return data.publicUrl;
 }
 
-interface ContentMetadataRow {
-  id: string;
-  date: string | null;
-  channel: string | null;
-  status: ContentStatus | null;
-}
-
 interface ContentMonthRow {
   id: string;
   data: Omit<Content, 'id'>;
@@ -77,43 +70,17 @@ function monthDateKey(date: Date): string {
 export async function fetchContents(workspaceId: string, month: Date): Promise<Content[]> {
   const monthStart = monthDateKey(month);
   const nextMonthStart = monthDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 1));
-  const [metadataResult, monthResult] = await Promise.all([
-    supabase
-      .from('posts')
-      .select('id,date:data->>date,channel:data->>channel,status:data->>status')
-      .eq('workspace_id', workspaceId)
-      .order('id'),
-    supabase
-      .from('posts')
-      .select('id,data')
-      .eq('workspace_id', workspaceId)
-      .gte('data->>date', monthStart)
-      .lt('data->>date', nextMonthStart)
-      .order('id'),
-  ]);
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id,data')
+    .eq('workspace_id', workspaceId)
+    .gte('data->>date', monthStart)
+    .lt('data->>date', nextMonthStart)
+    .order('id');
 
-  if (metadataResult.error) throw metadataResult.error;
-  if (monthResult.error) throw monthResult.error;
-
-  const monthContents = new Map(
-    ((monthResult.data ?? []) as ContentMonthRow[])
-      .map((row) => [row.id, row.data]),
-  );
-  return ((metadataResult.data ?? []) as ContentMetadataRow[]).map((row) => ({
-    ...(monthContents.get(row.id) || {
-      title: '',
-      date: row.date || '',
-      channel: row.channel || '',
-      format: '',
-      link: '',
-      caption: '',
-      note: '',
-      status: row.status || 'rascunho',
-      coverData: '',
-      history: [],
-      reviewComments: [],
-      updatedAt: '',
-    }),
+  if (error) throw error;
+  return ((data ?? []) as ContentMonthRow[]).map((row) => ({
+    ...row.data,
     id: row.id,
   }));
 }
