@@ -9,7 +9,6 @@ import ReviewCard from './components/ReviewCard';
 import ReviewDecisionModal from './components/ReviewDecisionModal';
 import ThemeToggle from './components/ThemeToggle';
 import WorkspaceSwitcher from './components/WorkspaceSwitcher';
-import { getWorkspaceDisplayName } from './features/content-approval/workspaceLabels';
 import {
   createWorkspace,
   archiveWorkspace,
@@ -38,6 +37,7 @@ import {
 import { createMockContents } from './features/content-approval/mockData';
 import { importContentCsv } from './features/content-approval/csvImport';
 import { getChannelLabel } from './features/content-approval/contentLabels';
+import { getWorkspaceDisplayName } from './features/content-approval/workspaceLabels';
 import type { Content, ContentFormData, ContentStatus, ReviewComment } from './features/content-approval/types';
 
 type ViewMode = 'cards' | 'calendar' | 'table';
@@ -326,14 +326,14 @@ function App() {
 
     async function loadUserWorkspaces() {
       try {
-        const [personalWorkspaceReady, initialWorkspaceResult, adminResult] = await Promise.all([
-          ensurePersonalWorkspace(),
+        let [workspaceResult, adminResult] = await Promise.all([
           listUserWorkspaces(),
           verifyPanelAdmin(userId),
         ]);
-        let workspaceResult = initialWorkspaceResult;
-        if (personalWorkspaceReady && !workspaceResult.some((workspace) => workspace.isPersonal)) {
-          workspaceResult = await listUserWorkspaces();
+        let personalWorkspaceReady = true;
+        if (!workspaceResult.some((workspace) => workspace.isPersonal)) {
+          personalWorkspaceReady = await ensurePersonalWorkspace();
+          if (personalWorkspaceReady) workspaceResult = await listUserWorkspaces();
         }
         if (!active) return;
         if (!personalWorkspaceReady && workspaceResult.length === 0) {
@@ -429,12 +429,11 @@ function App() {
   );
   const channels = useMemo(
     () => Array.from(new Set(
-      contents
-        .filter((content) => activeRole !== 'revisor' || content.status !== 'rascunho')
+      monthContents
         .map((content) => content.channel)
         .filter(Boolean),
     )).sort(),
-    [contents, activeRole],
+    [monthContents],
   );
   const visibleContents = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('pt-BR');
