@@ -1,4 +1,5 @@
 import type { Content, ContentStatus } from '../features/content-approval/types';
+import { getContentImages } from '../features/content-approval/types';
 import { getChannelLabel, getContentTypeLabel } from '../features/content-approval/contentLabels';
 import AttachmentImage from './AttachmentImage';
 
@@ -15,12 +16,14 @@ const statusLabels: Record<ContentStatus, string> = {
 };
 
 export default function ContentCard({ content, onEdit }: ContentCardProps) {
+  const images = getContentImages(content);
   return (
     <article className="content-card" onClick={() => onEdit(content)}>
       <div className="cover">
-        {content.coverData ? (
+        {images.length > 0 ? (
           <AttachmentImage
-            src={content.coverData}
+            src={images[0]}
+            images={images}
             alt={`Capa de ${content.title}`}
             triggerClassName="cover-image-trigger"
           />

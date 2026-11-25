@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import type { Content, ContentFormData, ContentStatus, ReviewComment } from '../features/content-approval/types';
+import {
+  getContentImages,
+  MAX_CONTENT_IMAGES,
+  type Content,
+  type ContentFormData,
+  type ContentStatus,
+  type ReviewComment,
+} from '../features/content-approval/types';
 import AttachmentImage from './AttachmentImage';
 import DropdownSelect from './DropdownSelect';
 
@@ -109,9 +116,11 @@ export default function ContentForm({
     note: initial?.note || '',
     status: initial?.status || 'rascunho',
     coverData: initial?.coverData || '',
+    additionalImages: initial?.additionalImages || [],
   }));
   const [reviewComments, setReviewComments] = useState<ReviewComment[]>(initial?.reviewComments || []);
   const [pending, setPending] = useState(false);
+  const [processingImages, setProcessingImages] = useState(false);
   const [error, setError] = useState('');
 
   function update<K extends keyof ContentFormData>(key: K, value: ContentFormData[K]) {
@@ -131,14 +140,57 @@ export default function ContentForm({
     }
   }
 
-  async function handleFile(file?: File) {
-    if (!file) return;
-    setError('');
-    try {
-      update('coverData', await resizeImage(file));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível carregar a imagem.');
+  async function handleFiles(files: File[]) {
+    if (files.length === 0) return;
+    const availableSlots = Math.max(0, MAX_CONTENT_IMAGES - getContentImages(form).length);
+    if (availableSlots === 0) {
+      setError(`Este conteúdo já atingiu o limite de ${MAX_CONTENT_IMAGES} imagens.`);
+      return;
     }
+
+    const filesToAdd = files.slice(0, availableSlots);
+    setError('');
+    setProcessingImages(true);
+    try {
+      const resizedImages: string[] = [];
+      const failures: string[] = [];
+      for (const file of filesToAdd) {
+        try {
+          resizedImages.push(await resizeImage(file));
+        } catch (reason) {
+          const message = reason instanceof Error ? reason.message : 'não foi possível processar o arquivo';
+          failures.push(`${file.name}: ${message}`);
+        }
+      }
+
+      if (resizedImages.length > 0) {
+        setForm((current) => {
+          const nextImages = [...getContentImages(current), ...resizedImages].slice(0, MAX_CONTENT_IMAGES);
+          return {
+            ...current,
+            coverData: nextImages[0] || '',
+            additionalImages: nextImages.slice(1),
+          };
+        });
+      }
+      const notices: string[] = [];
+      if (files.length > filesToAdd.length) {
+        notices.push(`Foram ignorados ${files.length - filesToAdd.length} arquivo(s): o limite é ${MAX_CONTENT_IMAGES} imagens por conteúdo.`);
+      }
+      if (failures.length > 0) notices.push(`Não foi possível adicionar: ${failures.join('; ')}`);
+      setError(notices.join(' '));
+    } finally {
+      setProcessingImages(false);
+    }
+  }
+
+  function removeImage(index: number) {
+    const nextImages = getContentImages(form).filter((_, imageIndex) => imageIndex !== index);
+    setForm((current) => ({
+      ...current,
+      coverData: nextImages[0] || '',
+      additionalImages: nextImages.slice(1),
+    }));
   }
 
   async function handleDelete() {
@@ -269,19 +321,44 @@ export default function ContentForm({
               </section>
             )}
             <label>
-              Capa
-              <input type="file" accept="image/*" onChange={(event) => void handleFile(event.target.files?.[0])} />
+              Imagens ({getContentImages(form).length}/{MAX_CONTENT_IMAGES})
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={processingImages || getContentImages(form).length >= MAX_CONTENT_IMAGES}
+                onChange={(event) => {
+                  const files = Array.from(event.target.files || []);
+                  event.target.value = '';
+                  void handleFiles(files);
+                }}
+              />
             </label>
-            {form.coverData && (
-              <div className="cover-preview">
-                <AttachmentImage
-                  src={form.coverData}
-                  alt="Prévia da capa"
-                  triggerClassName="cover-preview-image-trigger"
-                />
-                <button className="button button-subtle" type="button" onClick={() => update('coverData', '')}>Remover capa</button>
+            <p className="muted">
+              Adicione até {MAX_CONTENT_IMAGES} imagens. Selecione várias com Ctrl/Shift ou escolha arquivos em etapas; use as setas no card para navegar.
+            </p>
+            {getContentImages(form).length > 0 && (
+              <div className="content-image-previews">
+                {getContentImages(form).map((image, index) => (
+                  <div className="content-image-preview" key={`${index}-${image.slice(0, 32)}`}>
+                    <AttachmentImage
+                      src={image}
+                      alt={`Prévia da imagem ${index + 1}`}
+                      triggerClassName="cover-preview-image-trigger"
+                    />
+                    <button
+                      className="button button-subtle"
+                      type="button"
+                      disabled={processingImages}
+                      onClick={() => removeImage(index)}
+                    >
+                      Remover {index + 1}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
+            {processingImages && <p className="muted">Preparando imagens…</p>}
             {error && <p className="form-error" role="alert">{error}</p>}
           </div>
           <footer className="modal-footer">
@@ -290,8 +367,8 @@ export default function ContentForm({
             )}
             <div className="footer-actions">
               <button className="button" disabled={pending} onClick={onClose} type="button">Cancelar</button>
-              <button className="button button-primary" disabled={pending} type="submit">
-                {pending ? 'Salvando…' : 'Salvar'}
+              <button className="button button-primary" disabled={pending || processingImages} type="submit">
+                {processingImages ? 'Preparando imagens…' : pending ? 'Salvando…' : 'Salvar'}
               </button>
             </div>
           </footer>

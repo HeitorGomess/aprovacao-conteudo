@@ -1,4 +1,5 @@
 import type { Content, ContentStatus } from '../features/content-approval/types';
+import { getContentImages } from '../features/content-approval/types';
 import { getChannelLabel, getContentTypeLabel } from '../features/content-approval/contentLabels';
 import AttachmentImage from './AttachmentImage';
 
@@ -15,6 +16,7 @@ const statusLabels: Record<ContentStatus, string> = {
 };
 
 export default function ReviewCard({ content, onReview }: ReviewCardProps) {
+  const images = getContentImages(content);
   const recentComments = [...(content.reviewComments || [])].reverse().slice(0, 2);
   const isInteractive = content.status === 'revisao' && Boolean(onReview);
 
@@ -33,9 +35,10 @@ export default function ReviewCard({ content, onReview }: ReviewCardProps) {
       } : undefined}
     >
       <div className="review-cover">
-        {content.coverData ? (
+        {images.length > 0 ? (
           <AttachmentImage
-            src={content.coverData}
+            src={images[0]}
+            images={images}
             alt={`Capa de ${content.title}`}
             triggerClassName="review-cover-image-trigger"
           />

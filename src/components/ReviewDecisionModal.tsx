@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Content, ContentStatus } from '../features/content-approval/types';
+import { getContentImages, type Content, type ContentStatus } from '../features/content-approval/types';
 import { getChannelLabel } from '../features/content-approval/contentLabels';
 import AttachmentImage from './AttachmentImage';
 
@@ -20,6 +20,7 @@ function getErrorMessage(reason: unknown): string {
 }
 
 export default function ReviewDecisionModal({ content, onClose, onSubmit }: ReviewDecisionModalProps) {
+  const images = getContentImages(content);
   const [comment, setComment] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -54,9 +55,10 @@ export default function ReviewDecisionModal({ content, onClose, onSubmit }: Revi
         <form className="review-form" onSubmit={(event) => event.preventDefault()}>
           <div className="review-modal-body">
             <div className="review-detail">
-              {content.coverData ? (
+              {images.length > 0 ? (
                 <AttachmentImage
-                  src={content.coverData}
+                  src={images[0]}
+                  images={images}
                   alt={`Imagem da publicação: ${content.title}`}
                   imageClassName="review-detail-image"
                   triggerClassName="review-detail-image-trigger"
